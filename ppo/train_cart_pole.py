@@ -17,7 +17,7 @@ vec_env = make_vec_env("InvertedPendulum-v4", n_envs=1)
 model = PPO("MlpPolicy", vec_env, verbose=1)
 
 # Do the learning
-model.learn(total_timesteps=100000)
+model.learn(total_timesteps=30000)
 
 # Save the model
 model.save("cart_pole")
