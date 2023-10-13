@@ -7,19 +7,21 @@
 ##
 
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
+from stable_baselines3.common.env_util import make_vec_env
 
 from sb3_contrib import RecurrentPPO
-from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
-from stable_baselines3.common.env_util import make_vec_env
+from custom_policy import CustomRecurrentActorCriticPolicy
+
 
 vec_env = make_vec_env("InvertedPendulum-v4", n_envs=1)
 
-model = RecurrentPPO(RecurrentActorCriticPolicy, vec_env, verbose=1,
-        policy_kwargs={"shared_lstm":False, "enable_critic_lstm":False})
+model = RecurrentPPO(CustomRecurrentActorCriticPolicy, vec_env, verbose=1)
 
-model.learn(total_timesteps=30000)
+print(model.policy)
 
-vec_env = model.get_env()
+model.learn(total_timesteps=10)
 
-model.save("cart_pole_lstm")
+#model.learn(total_timesteps=30000)
+#model.save("cart_pole_lstm")
 
