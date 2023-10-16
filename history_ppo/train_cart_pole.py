@@ -24,7 +24,7 @@ model = PPO(CustomActorCriticPolicy, vec_env, verbose=1)
 print(f"Training a policy with {len(model.policy.parameters_to_vector())} parameters")
 
 # Do the learning
-model.learn(total_timesteps=30000)
+model.learn(total_timesteps=150000)
 
 # Save the model
 model.save("cart_pole")
