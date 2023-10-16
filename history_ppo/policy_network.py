@@ -14,9 +14,10 @@ class CustomNetwork(nn.Module):
         self.latent_dim_pi = 64
         self.latent_dim_vf = 64
 
-        self.policy_net = nn.Sequential(
-                nn.Linear(input_size, self.latent_dim_pi), nn.ReLU(),
-                nn.Linear(self.latent_dim_pi, self.latent_dim_pi), nn.ReLU())
+        #self.policy_net = nn.Sequential(
+        #        nn.Linear(input_size, self.latent_dim_pi), nn.ReLU(),
+        #        nn.Linear(self.latent_dim_pi, self.latent_dim_pi), nn.ReLU())
+        self.policy_net = nn.Linear(input_size, self.latent_dim_pi)
         self.value_net = nn.Sequential(
                 nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
                 nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())

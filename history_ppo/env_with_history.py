@@ -6,7 +6,7 @@ class ObservationHistoryEnv(gym.Env):
     A gym environment for the cart-pole that returns a history of
     observations.
     """
-    def __init__(self, history_length, render_mode=None):
+    def __init__(self, history_length=10, render_mode=None):
         self.env = gym.make("InvertedPendulum-v4", render_mode=render_mode)
         self.history_length = history_length
         self.observation_space = gym.spaces.Box(

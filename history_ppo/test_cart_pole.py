@@ -11,8 +11,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from env_with_history import ObservationHistoryEnv
 
 # Create the environment
-history_length = 3
-env = ObservationHistoryEnv(history_length, render_mode="human")
+env = ObservationHistoryEnv(render_mode="human")
 vec_env = DummyVecEnv([lambda: env])
 
 # Load the trained model

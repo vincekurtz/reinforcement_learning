@@ -14,15 +14,14 @@ from stable_baselines3.common.monitor import Monitor
 from policy_network import CustomActorCriticPolicy
 from env_with_history import ObservationHistoryEnv
 
-# Number of timesteps of observations to record
-history_length = 3
-
 # Wrapping env in a monitor allows us to print some useful stuff
-env = Monitor(ObservationHistoryEnv(history_length), None)
+env = Monitor(ObservationHistoryEnv(), None)
 vec_env = DummyVecEnv([lambda: env])
 
 # set up the model (a.k.a. controller)
 model = PPO(CustomActorCriticPolicy, vec_env, verbose=1)
+
+print(f"Training a policy with {len(model.policy.parameters_to_vector())} parameters")
 
 # Do the learning
 model.learn(total_timesteps=30000)
