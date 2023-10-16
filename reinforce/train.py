@@ -9,13 +9,13 @@
 
 import gymnasium as gym
 import numpy as np
-
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
+import time
 
 # Set random seed for reproducability
-SEED = 0
+SEED = 1
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.cuda.manual_seed_all(SEED)
@@ -90,8 +90,9 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
     # Define the optimizer
     optimizer = torch.optim.Adam(policy.parameters(), lr=learning_rate)
 
-    # Store running average of rewards for logging
+    # Store stuff for logging
     avg_rewards = []
+    start_time = time.time()
 
     # Iterate over episodes
     for episode in range(num_episodes):
@@ -116,11 +117,17 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
             rewards.append(reward)
             log_probs.append(log_prob)
 
-        # Once the episode is over, calculate the loss
-        returns = calculate_returns(rewards, gamma)
+        # Once the episode is over, calculate the loss, 
+        #   J = -1/T * sum(log_prob * G_t),
+        # where G_t = sum(gamma^k * r_{t+k}) is the discounted return.
         T = len(log_probs)
-        loss = -1 / T * sum([log_probs[t] * returns[t] for t in range(T)])
-        
+        returns = np.zeros(T)
+        returns[-1] = rewards[-1]
+        for t in range(T-2, -1, -1):
+            returns[t] = rewards[t] + gamma * returns[t+1]
+
+        loss = -1/T * sum([log_probs[t] * returns[t] for t in range(T)])
+
         # Compute gradients and update the parameters
         optimizer.zero_grad()
         loss.backward()
@@ -129,21 +136,8 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
         # Print the average reward every 100 episodes
         avg_rewards.append(sum(rewards))
         if episode % 100 == 0:
-            print(f"Episode {episode + 1} reward: {np.mean(avg_rewards)}")
+            print(f"Episode {episode + 1}, avg reward: {np.mean(avg_rewards)}, time_elapsed: {time.time() - start_time:.2f}")
             avg_rewards = []
-
-def calculate_returns(rewards, gamma):
-    """
-    Compute the discounted returns G_t for each timestep.
-
-    Args:
-        rewards: The rewards for each timestep.
-        gamma: The discount factor.
-    """
-    returns = []
-    for t in range(len(rewards)):
-        returns.append(sum([gamma**(k-t) * rewards[k] for k in range(t, len(rewards))]))
-    return returns
 
 if __name__=="__main__":
     # Create the environment
@@ -154,7 +148,7 @@ if __name__=="__main__":
     policy = PolicyNetwork(env.observation_space.shape[0], env.action_space.shape[0])
 
     # Train the policy
-    reinforce(env, policy, num_episodes=30000)
+    reinforce(env, policy, num_episodes=100000)
 
     # Save the policy
     torch.save(policy.state_dict(), "policy.pt")
