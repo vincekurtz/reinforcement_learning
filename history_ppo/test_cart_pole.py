@@ -6,17 +6,14 @@
 #
 ##
 
-import gymnasium as gym
-import numpy as np
-import time
-
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
-from train_cart_pole import make_env_with_observation_history
+from stable_baselines3.common.vec_env import DummyVecEnv
+from env_with_history import ObservationHistoryEnv
 
-# Set up the environment
-vec_env = make_env_with_observation_history(4)
-#vec_env = make_vec_env("InvertedPendulum-v4", n_envs=1)
+# Create the environment
+history_length = 3
+env = ObservationHistoryEnv(history_length, render_mode="human")
+vec_env = DummyVecEnv([lambda: env])
 
 # Load the trained model
 model = PPO.load("cart_pole")
