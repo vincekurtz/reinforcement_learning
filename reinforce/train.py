@@ -7,19 +7,24 @@
 #
 ##
 
+import gymnasium as gym
+import numpy as np
+
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
 
-import numpy as np
-
-
-import gymnasium as gym
+# Set random seed for reproducability
+SEED = 0
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic=True
 
 class PolicyNetwork(nn.Module):
     """
     The policy network takes in observations and outputs the mean and standard
-    deviation of the action distribution.
+    deviation of an action distribution.
     """
     def __init__(self, input_size, output_size) -> None:
         """
@@ -34,8 +39,6 @@ class PolicyNetwork(nn.Module):
         # Define the mean network
         self.mean_network = nn.Sequential(
             nn.Linear(input_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, 64),
             nn.ReLU(),
             nn.Linear(64, output_size)
         )
@@ -68,28 +71,14 @@ class PolicyNetwork(nn.Module):
             The action and the log probability of the action
         """
         mean, std = self.forward(x)
-        action = torch.normal(mean, std)
-        return action, self.log_prob(mean, std, action)
-    
-    def log_prob(self, mean, std, action):
-        """
-        Given the mean and standard deviation of the action distribution and an
-        action, calculate the log probability of the action.
-
-        Args:
-            mean: The mean of the action distribution
-            std: The standard deviation of the action distribution
-            action: The action
-
-        Returns:
-            The log probability of the action
-        """
         distribution = Normal(mean, std)
-        return distribution.log_prob(action).sum()
+        action = distribution.sample()
+        log_prob = distribution.log_prob(action).sum()
+        return action, log_prob
     
 def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
     """
-    Train the policy using the simple policy gradient REINFORCE algorithm.
+    Train the policy using the simple policy gradient algorithm REINFORCE.
 
     Args:
         env: The environment to train the policy on.
@@ -100,6 +89,9 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
     """
     # Define the optimizer
     optimizer = torch.optim.Adam(policy.parameters(), lr=learning_rate)
+
+    # Store running average of rewards for logging
+    avg_rewards = []
 
     # Iterate over episodes
     for episode in range(num_episodes):
@@ -124,56 +116,45 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001):
             rewards.append(reward)
             log_probs.append(log_prob)
 
-            # If the episode is done, calculate the return (sum of discounted rewards)
-            if done:
-                print(rewards)
+        # Once the episode is over, calculate the loss
+        returns = calculate_returns(rewards, gamma)
+        T = len(log_probs)
+        loss = -1 / T * sum([log_probs[t] * returns[t] for t in range(T)])
+        
+        # Compute gradients and update the parameters
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-                sys.exit()
-                ## Calculate the returns
-                #returns = calculate_returns(rewards, gamma)
-
-                ## Calculate the discounted rewards
-                #discounted_rewards = calculate_discounted_rewards(rewards, gamma)
-
-    #    # Calculate the loss
-    #    loss = calculate_loss(log_probs, discounted_rewards)
-
-    #    # Zero the gradients
-    #    optimizer.zero_grad()
-
-    #    # Backpropagate the loss
-    #    loss.backward()
-
-    #    # Update the parameters
-    #    optimizer.step()
-
-    #    # Print the episode rewards
-    #    print(f"Episode {episode + 1} reward: {sum(rewards)}")
+        # Print the average reward every 100 episodes
+        avg_rewards.append(sum(rewards))
+        if episode % 100 == 0:
+            print(f"Episode {episode + 1} reward: {np.mean(avg_rewards)}")
+            avg_rewards = []
 
 def calculate_returns(rewards, gamma):
     """
-    Compute the returns (sum of discounted rewards for each timestep), 
+    Compute the discounted returns G_t for each timestep.
 
-        G_t = \sum_{k=0}^{t} \gamma^k R_{k}.
-    
     Args:
         rewards: The rewards for each timestep.
         gamma: The discount factor.
-    
-    Returns:
-        The returns for each timestep.
     """
     returns = []
     for t in range(len(rewards)):
-        returns.append(sum([gamma**k * rewards[k] for k in range(0, t+1)]))
+        returns.append(sum([gamma**(k-t) * rewards[k] for k in range(t, len(rewards))]))
     return returns
 
 if __name__=="__main__":
     # Create the environment
     env = gym.make("Pendulum-v1")
+    env.reset(seed=SEED)
 
     # Create the policy
     policy = PolicyNetwork(env.observation_space.shape[0], env.action_space.shape[0])
 
     # Train the policy
-    #reinforce(env, policy)
+    reinforce(env, policy, num_episodes=30000)
+
+    # Save the policy
+    torch.save(policy.state_dict(), "policy.pt")
