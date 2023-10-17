@@ -147,7 +147,7 @@ if __name__=="__main__":
     env.reset(seed=SEED)
 
     # Create the policy
-    policy = MlpPolicy(env.observation_space.shape[0], env.action_space.shape[0])
+    policy = MlpPolicy(env.observation_space, env.action_space)
 
     # Train the policy
     reinforce(env, policy, num_episodes=60000, learning_rate=5e-4)

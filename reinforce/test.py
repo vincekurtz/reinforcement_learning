@@ -8,13 +8,13 @@
 
 import gymnasium as gym
 import torch
-from train import PolicyNetwork
+from policies import MlpPolicy
 
 # Set up the environment
 env = gym.make('Pendulum-v1', render_mode="human")
 
 # Load the policy network from disk
-policy_network = PolicyNetwork(3,1)
+policy_network = MlpPolicy(env.observation_space, env.action_space)
 policy_network.load_state_dict(torch.load('policy.pt'))
 
 # Run the policy
