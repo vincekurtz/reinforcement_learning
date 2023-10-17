@@ -13,7 +13,7 @@ import torch
 import time
 import pickle
 
-from policies import MlpPolicy
+from policies import MlpPolicy, RnnPolicy
 from utils import ConvergencePlotter
 
 @torch.no_grad() 
@@ -73,6 +73,9 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, p
 
         # Reset the environment and get the initial observation
         observation, info = env.reset()
+
+        # Reset the hidden state of the policy network, if necessary
+        policy.reset()
 
         # Iterate until the episode is done
         done = False
@@ -147,7 +150,8 @@ if __name__=="__main__":
     env.reset(seed=SEED)
 
     # Create the policy
-    policy = MlpPolicy(env.observation_space, env.action_space)
+    #policy = MlpPolicy(env.observation_space, env.action_space)
+    policy = RnnPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=60000, learning_rate=5e-4)
+    reinforce(env, policy, num_episodes=60000, learning_rate=1e-4)

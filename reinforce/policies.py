@@ -77,3 +77,41 @@ class MlpPolicy(PolicyNetwork):
         log_prob = distribution.log_prob(action).sum()
         return action, log_prob
     
+class RnnPolicy(PolicyNetwork):
+    """
+    A simple policy network based on a Recurrent Neural Network (RNN).
+    """
+    def __init__(self, observation_space, action_space):
+        super().__init__(observation_space, action_space)
+
+        # Define the mean network as an RNN
+        self.state_size = 64  # Size of the hidden state
+        self.recurrent_network = nn.RNN(self.input_size, self.state_size, nonlinearity='tanh', batch_first=True)
+        self.output_network = nn.Sequential(
+            nn.Linear(self.state_size, self.state_size),
+            nn.ReLU(),
+            nn.Linear(self.state_size, self.output_size))
+
+        # Define a single parameter for the (log) standard deviation
+        self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
+
+        # Reset the hidden state
+        self.reset()
+
+    def forward(self, x):
+        _, hidden = self.recurrent_network(x.unsqueeze(0), self.hidden_state)
+        self.hidden_state = hidden.detach()
+        mean = self.output_network(hidden.squeeze(0))
+        std = torch.exp(self.log_std)
+        return mean, std
+    
+    def sample(self, x):
+        mean, std = self.forward(x)
+        distribution = Normal(mean, std)
+        action = distribution.sample()
+        log_prob = distribution.log_prob(action).sum()
+        return action, log_prob
+    
+    def reset(self):
+        self.hidden_state = torch.zeros(1, 64)
+    
