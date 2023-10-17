@@ -114,4 +114,56 @@ class RnnPolicy(PolicyNetwork):
     
     def reset(self):
         self.hidden_state = torch.zeros(1, 64)
+
+class KoopmanPolicy(PolicyNetwork):
+    """
+    A recurrent policy network based on Koopman theory. The controller is
+    treated as a linear system,
+
+        x_{t+1} = Ax_t + Bu_t,
+        y_t = Cx_t + Du_t,
+
+    where u_t is the input (observations), y_t is the output (actions), and x_t
+    is the state. Koopman tells us that any nonlinear system can be represented 
+    as a linear system in an infinite-dimensional space, and the perfect
+    controller can be described as a nonlinear system, so we'll learn a
+    finite-dimensional linear approximation.
+    """
+    def __init__(self, observation_space, action_space):
+        super().__init__(observation_space, action_space)
+
+        # Decide on the size of the hidden state x
+        self.hidden_state_size = 64
+
+        # Linear system matrices
+        self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)
+        self.B = nn.Linear(self.input_size, self.hidden_state_size, bias=False)
+        self.C = nn.Linear(self.hidden_state_size, self.output_size, bias=False)
+        self.D = nn.Linear(self.input_size, self.output_size, bias=False)
+
+        # Define a single parameter for the (log) standard deviation
+        self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
+
+        # Allocate the hidden state
+        self.reset()
+
+    def forward(self, u):
+        # Compute the output (mean) based on the current state
+        y = self.C(self.x) + self.D(u)
+
+        # Advance the linear system dynamics
+        self.x = self.A(self.x) + self.B(u)
+
+        # Return the mean and standard deviation of the action distribution
+        std = torch.exp(self.log_std)
+        return y, std
     
+    def sample(self, x):
+        mean, std = self.forward(x)
+        distribution = Normal(mean, std)
+        action = distribution.sample()
+        log_prob = distribution.log_prob(action).sum()
+        return action, log_prob
+    
+    def reset(self):
+        self.x = torch.zeros(self.hidden_state_size)

@@ -13,7 +13,7 @@ import torch
 import time
 import pickle
 
-from policies import MlpPolicy, RnnPolicy
+from policies import MlpPolicy, RnnPolicy, KoopmanPolicy
 from utils import ConvergencePlotter
 
 @torch.no_grad() 
@@ -32,6 +32,7 @@ def evaluate_policy(env, policy, num_episodes=100):
     rewards = [0 for _ in range(num_episodes)]
     for episode in range(num_episodes):
         obs, _ = env.reset()
+        policy.reset()
 
         # Simulate the episode until the end
         done = False
@@ -151,7 +152,8 @@ if __name__=="__main__":
 
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
-    policy = RnnPolicy(env.observation_space, env.action_space)
+    #policy = RnnPolicy(env.observation_space, env.action_space)
+    policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
     reinforce(env, policy, num_episodes=60000, learning_rate=1e-4)
