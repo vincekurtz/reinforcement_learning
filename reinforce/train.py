@@ -10,100 +10,11 @@
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.distributions import Normal
 import time
-import matplotlib.pyplot as plt
 import pickle
 
-# Set random seed for reproducability
-SEED = 1
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed_all(SEED)
-torch.backends.cudnn.deterministic=True
-
-class PolicyNetwork(nn.Module):
-    """
-    The policy network takes in observations and outputs the mean and standard
-    deviation of an action distribution.
-    """
-    def __init__(self, input_size, output_size) -> None:
-        """
-        Initialize the policy network.
-        
-        Args:
-            input_size: The size of the observation space
-            output_size: The size of the action space
-        """
-        super().__init__()
-
-        # Define the mean network
-        self.mean_network = nn.Sequential(
-            nn.Linear(input_size, 64),
-            nn.ReLU(),
-            nn.Linear(64, output_size)
-        )
-
-        # Define a single parameter for the (log) standard deviation
-        self.log_std = nn.Parameter(torch.zeros(output_size), requires_grad=True)
-
-    def forward(self, x):
-        """
-        Forward pass through the policy network.
-
-        Args:
-            x: The observation
-        
-        Returns:
-            The mean and standard deviation of the action distribution
-        """
-        mean = self.mean_network(x)
-        std = torch.exp(self.log_std)
-        return mean, std
-    
-    def sample(self, x):
-        """
-        Given an observation, sample an action from the action distribution.
-
-        Args:
-            x: The observation
-
-        Returns:
-            The action and the log probability of the action
-        """
-        mean, std = self.forward(x)
-        distribution = Normal(mean, std)
-        action = distribution.sample()
-        log_prob = distribution.log_prob(action).sum()
-        return action, log_prob
-    
-class ConvergencePlotter:
-    """
-    A little struct for holding convergence information and tools for making
-    cute plots of it.
-    """
-    def __init__(self):
-        # List of list of rewards at each iteration
-        self.rewards = []
-
-        # List of iteration numbers, since we'll only add to this every so often
-        self.iteration_numbers = []
-
-    def add(self, iteration_number, rewards):
-        self.rewards.append(rewards)
-        self.iteration_numbers.append(iteration_number)
-
-    def plot(self):
-        """
-        Make a matplotlib plot of the convergence information.
-        """
-        mean_rewards = [np.mean(rewards) for rewards in self.rewards]
-        std_rewards = [np.std(rewards) for rewards in self.rewards]
-        plt.errorbar(self.iteration_numbers, mean_rewards, yerr=std_rewards)
-        plt.xlabel("Iteration")
-        plt.ylabel("Average Reward")
-        plt.show()
+from policies import MlpPolicy
+from utils import ConvergencePlotter
 
 @torch.no_grad() 
 def evaluate_policy(env, policy, num_episodes=100):
@@ -212,6 +123,9 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, p
             fname = f"checkpoints/policy_{episode}.pt"
             print(f"Saving checkpoint to {fname}")
             torch.save(policy.state_dict(), fname)
+    
+    # Save the policy
+    torch.save(policy.state_dict(), "policy.pt")
 
     # Save a pickle of the plotter in case we want to look at it later
     with open("plotter.pkl", "wb") as f:
@@ -221,16 +135,19 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, p
     plotter.plot()
 
 if __name__=="__main__":
+    # Set random seed for reproducability
+    SEED = 1
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic=True
+
     # Create the environment
     env = gym.make("Pendulum-v1")
     env.reset(seed=SEED)
 
     # Create the policy
-    policy = PolicyNetwork(env.observation_space.shape[0], env.action_space.shape[0])
-    #policy.load_state_dict(torch.load('policy.pt'))
+    policy = MlpPolicy(env.observation_space.shape[0], env.action_space.shape[0])
 
     # Train the policy
     reinforce(env, policy, num_episodes=60000, learning_rate=5e-4)
-
-    # Save the policy
-    torch.save(policy.state_dict(), "policy.pt")
