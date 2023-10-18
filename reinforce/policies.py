@@ -136,9 +136,9 @@ class KoopmanPolicy(PolicyNetwork):
         self.hidden_state_size = 64
 
         # Linear system matrices
-        self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)
-        self.B = nn.Linear(self.input_size, self.hidden_state_size, bias=False)
-        self.C = nn.Linear(self.hidden_state_size, self.output_size, bias=False)
+        #self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)
+        #self.B = nn.Linear(self.input_size, self.hidden_state_size, bias=False)
+        #self.C = nn.Linear(self.hidden_state_size, self.output_size, bias=False)
         self.D = nn.Linear(self.input_size, self.output_size, bias=False)
 
         # Define a single parameter for the (log) standard deviation
@@ -148,11 +148,13 @@ class KoopmanPolicy(PolicyNetwork):
         self.reset()
 
     def forward(self, u):
-        # Compute the output (mean) based on the current state
-        y = self.C(self.x) + self.D(u)
+        ## Compute the output (mean) based on the current state
+        #y = self.C(self.x) + self.D(u)
 
-        # Advance the linear system dynamics
-        self.x = self.A(self.x) + self.B(u)
+        ## Advance the linear system dynamics
+        #self.x = self.A(self.x) + self.B(u)
+
+        y = self.D(u)
 
         # Return the mean and standard deviation of the action distribution
         std = torch.exp(self.log_std)
@@ -166,4 +168,5 @@ class KoopmanPolicy(PolicyNetwork):
         return action, log_prob
     
     def reset(self):
-        self.x = torch.zeros(self.hidden_state_size)
+        pass
+        #self.x = torch.zeros(self.hidden_state_size)

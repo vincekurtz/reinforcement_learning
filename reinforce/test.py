@@ -15,7 +15,7 @@ from policies import MlpPolicy, KoopmanPolicy
 env = gym.make("InvertedPendulum-v4", render_mode="human")
 
 # Load the policy network from disk
-policy_network = MlpPolicy(env.observation_space, env.action_space)
+policy_network = KoopmanPolicy(env.observation_space, env.action_space)
 policy_network.load_state_dict(torch.load('policy.pt'))
 
 # Run the policy

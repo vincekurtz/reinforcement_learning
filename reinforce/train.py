@@ -154,9 +154,9 @@ if __name__=="__main__":
     env.reset(seed=SEED)
 
     # Create the policy
-    policy = MlpPolicy(env.observation_space, env.action_space)
+    #policy = MlpPolicy(env.observation_space, env.action_space)
     #policy = RnnPolicy(env.observation_space, env.action_space)
-    #policy = KoopmanPolicy(env.observation_space, env.action_space)
+    policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=2000, learning_rate=1e-3)
+    reinforce(env, policy, num_episodes=3000, learning_rate=1e-2)
