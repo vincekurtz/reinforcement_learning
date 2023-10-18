@@ -159,4 +159,4 @@ if __name__=="__main__":
     policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=3000, learning_rate=1e-2)
+    reinforce(env, policy, num_episodes=3000, learning_rate=1e-3)
