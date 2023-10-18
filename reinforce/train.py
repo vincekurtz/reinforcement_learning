@@ -15,6 +15,7 @@ import pickle
 
 from policies import MlpPolicy, RnnPolicy, KoopmanPolicy, KoopmanBilinearPolicy
 from utils import ConvergencePlotter
+from envs import InvertedPendulumNoVelocity
 
 @torch.no_grad() 
 def evaluate_policy(env, policy, num_episodes=100):
@@ -150,14 +151,15 @@ if __name__=="__main__":
 
     # Create the environment
     #env = gym.make("Pendulum-v1")
-    env = gym.make("InvertedPendulum-v4")
+    #env = gym.make("InvertedPendulum-v4")
+    env = InvertedPendulumNoVelocity()
     env.reset(seed=SEED)
 
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
-    #policy = RnnPolicy(env.observation_space, env.action_space)
+    policy = RnnPolicy(env.observation_space, env.action_space)
     #policy = KoopmanPolicy(env.observation_space, env.action_space)
-    policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=5000, learning_rate=1e-3)
+    reinforce(env, policy, num_episodes=10000, learning_rate=1e-3)
