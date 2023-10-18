@@ -119,7 +119,7 @@ class KoopmanPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Decide on the size of the hidden state x
-        self.hidden_state_size = 8
+        self.hidden_state_size = 32
 
         # Linear system matrices
         self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)

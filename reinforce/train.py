@@ -157,8 +157,8 @@ if __name__=="__main__":
 
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
-    policy = RnnPolicy(env.observation_space, env.action_space)
-    #policy = KoopmanPolicy(env.observation_space, env.action_space)
+    #policy = RnnPolicy(env.observation_space, env.action_space)
+    policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
 
     # Check how many parameters it has
