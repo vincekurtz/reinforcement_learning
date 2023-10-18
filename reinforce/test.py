@@ -8,10 +8,11 @@
 
 import gymnasium as gym
 import torch
-from policies import MlpPolicy
+from policies import MlpPolicy, KoopmanPolicy
 
 # Set up the environment
-env = gym.make('Pendulum-v1', render_mode="human")
+#env = gym.make('Pendulum-v1', render_mode="human")
+env = gym.make("InvertedPendulum-v4", render_mode="human")
 
 # Load the policy network from disk
 policy_network = MlpPolicy(env.observation_space, env.action_space)

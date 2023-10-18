@@ -79,18 +79,20 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, p
         policy.reset()
 
         # Iterate until the episode is done
-        done = False
-        while not done:
+        max_steps = 500
+        for t in range(max_steps):
             # Get the action from the policy
             action, log_prob = policy.sample(torch.tensor(observation, dtype=torch.float32))
 
             # Apply the action to the environment
             observation, reward, terminated, truncated, info = env.step(action.detach().numpy())
-            done = terminated or truncated
 
             # Record the resulting rewards and log probabilities
             rewards.append(reward)
             log_probs.append(log_prob)
+
+            if terminated or truncated:
+                break
 
         # Once the episode is over, calculate the loss, 
         #   J = -1/T * sum(log_prob * G_t),
@@ -147,13 +149,14 @@ if __name__=="__main__":
     torch.backends.cudnn.deterministic=True
 
     # Create the environment
-    env = gym.make("Pendulum-v1")
+    #env = gym.make("Pendulum-v1")
+    env = gym.make("InvertedPendulum-v4")
     env.reset(seed=SEED)
 
     # Create the policy
-    #policy = MlpPolicy(env.observation_space, env.action_space)
+    policy = MlpPolicy(env.observation_space, env.action_space)
     #policy = RnnPolicy(env.observation_space, env.action_space)
-    policy = KoopmanPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=60000, learning_rate=1e-4)
+    reinforce(env, policy, num_episodes=3000, learning_rate=1e-3)
