@@ -40,7 +40,11 @@ class PolicyNetwork(nn.Module):
         Returns:
             The action and the log probability of the action
         """
-        raise NotImplementedError
+        mean, std = self.forward(x)
+        distribution = Normal(mean, std)
+        action = distribution.sample()
+        log_prob = distribution.log_prob(action).sum()
+        return action, log_prob
     
     def reset(self):
         """
@@ -70,13 +74,6 @@ class MlpPolicy(PolicyNetwork):
         std = torch.exp(self.log_std)
         return mean, std
     
-    def sample(self, x):
-        mean, std = self.forward(x)
-        distribution = Normal(mean, std)
-        action = distribution.sample()
-        log_prob = distribution.log_prob(action).sum()
-        return action, log_prob
-    
 class RnnPolicy(PolicyNetwork):
     """
     A simple policy network based on a Recurrent Neural Network (RNN).
@@ -103,13 +100,6 @@ class RnnPolicy(PolicyNetwork):
         mean = self.output_network(self.hidden_state.squeeze(0))
         std = torch.exp(self.log_std)
         return mean, std
-    
-    def sample(self, x):
-        mean, std = self.forward(x)
-        distribution = Normal(mean, std)
-        action = distribution.sample()
-        log_prob = distribution.log_prob(action).sum()
-        return action, log_prob
     
     def reset(self):
         self.hidden_state = torch.zeros(1, self.state_size)
@@ -157,12 +147,50 @@ class KoopmanPolicy(PolicyNetwork):
         std = torch.exp(self.log_std)
         return y, std
     
-    def sample(self, x):
-        mean, std = self.forward(x)
-        distribution = Normal(mean, std)
-        action = distribution.sample()
-        log_prob = distribution.log_prob(action).sum()
-        return action, log_prob
-    
     def reset(self):
         self.x = torch.zeros(self.hidden_state_size)
+
+class KoopmanBilinearPolicy(PolicyNetwork):
+    """
+    A recurrent policy network based on Koopman eigenfunctions. The controller
+    is a bilinear system,
+
+        z_{t+1} = Λz_t + z_t*Bu_t,
+        y_t = Cz_t,
+
+    where z_t are Koopman eigenfunctions of the controlled system, u_t is the
+    input (observations), y_t is the output (actions), and z_t are Koopman
+    eigenfunctions. Λ is a diagonal matrix that stores the corresponding Koopman
+    eigenvalues. Koopman theory tells us that (under some assumptions), any
+    control-affine system can be written in this form.
+    """
+    def __init__(self, observation_space, action_space):
+        super().__init__(observation_space, action_space)
+
+        # Decide on the size of the hidden state z
+        self.hidden_state_size = 100
+
+        # System matrices
+        self.Lambda = nn.Parameter(torch.randn(self.hidden_state_size), requires_grad=True)
+        self.B = nn.Bilinear(self.input_size, self.hidden_state_size, self.hidden_state_size, bias=False)
+        self.C = nn.Linear(self.hidden_state_size, self.output_size, bias=False)
+
+        # Define a single parameter for the (log) standard deviation
+        self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
+
+        # Allocate the hidden state
+        self.reset()
+
+    def forward(self, u):
+        # Compute the output (mean) based on the current state
+        y = self.C(self.z)
+
+        # Advance the linear system dynamics
+        self.z = self.Lambda * self.z + self.B(u, self.z)
+
+        # Return the mean and standard deviation of the action distribution
+        std = torch.exp(self.log_std)
+        return y, std
+
+    def reset(self):
+        self.z = torch.zeros(self.hidden_state_size) 
