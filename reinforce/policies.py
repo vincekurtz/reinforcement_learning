@@ -82,12 +82,9 @@ class RnnPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Define the mean network as an RNN
-        self.state_size = 5  # Size of the hidden state
+        self.state_size = 8  # Size of the hidden state
         self.recurrent_network = nn.RNN(self.input_size, self.state_size, nonlinearity='tanh', batch_first=True)
-        self.output_network = nn.Sequential(
-            nn.Linear(self.state_size, self.state_size),
-            nn.ReLU(),
-            nn.Linear(self.state_size, self.output_size))
+        self.output_network = nn.Linear(self.state_size, self.output_size)
 
         # Define a single parameter for the (log) standard deviation
         self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
@@ -122,7 +119,7 @@ class KoopmanPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Decide on the size of the hidden state x
-        self.hidden_state_size = 10
+        self.hidden_state_size = 8
 
         # Linear system matrices
         self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)
@@ -168,7 +165,7 @@ class KoopmanBilinearPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Decide on the size of the hidden state z
-        self.hidden_state_size = 100
+        self.hidden_state_size = 8
 
         # System matrices
         self.Lambda = nn.Parameter(torch.randn(self.hidden_state_size), requires_grad=True)

@@ -157,9 +157,15 @@ if __name__=="__main__":
 
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
-    #policy = RnnPolicy(env.observation_space, env.action_space)
-    policy = KoopmanPolicy(env.observation_space, env.action_space)
+    policy = RnnPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
 
+    # Check how many parameters it has
+    num_params = 0
+    for param in policy.parameters():
+        num_params += param.numel()
+    print(f"Training a policy with {num_params} parameters")
+
     # Train the policy
-    reinforce(env, policy, num_episodes=50000, learning_rate=1e-3)
+    reinforce(env, policy, num_episodes=30000, learning_rate=1e-3)
