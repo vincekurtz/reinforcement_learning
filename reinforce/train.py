@@ -45,7 +45,7 @@ def evaluate_policy(env, policy, num_episodes=100):
 
     return rewards
     
-def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, print_interval=100, checkpoint_interval=1000):
+def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, print_interval=10, checkpoint_interval=100):
     """
     Train the policy using the simple policy gradient algorithm REINFORCE.
 
@@ -159,4 +159,4 @@ if __name__=="__main__":
     #policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
-    reinforce(env, policy, num_episodes=3000, learning_rate=1e-3)
+    reinforce(env, policy, num_episodes=2000, learning_rate=1e-3)
