@@ -115,37 +115,57 @@ class KoopmanPolicy(PolicyNetwork):
     controller can be described as a nonlinear system, so we'll learn a
     finite-dimensional linear approximation.
     """
-    def __init__(self, observation_space, action_space):
+    def __init__(self, observation_space, action_space, lifted_state_size=10):
         super().__init__(observation_space, action_space)
 
-        # Decide on the size of the hidden state x
-        self.hidden_state_size = 32
-
-        # Linear system matrices
-        self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)
-        self.B = nn.Linear(self.input_size, self.hidden_state_size, bias=False)
-        self.C = nn.Linear(self.hidden_state_size, self.output_size, bias=False)
-        self.D = nn.Linear(self.input_size, self.output_size, bias=False)
+        # Define the mean network as a linear system
+        self.linear_system = LinearSystem(self.input_size, self.output_size, lifted_state_size)
 
         # Define a single parameter for the (log) standard deviation
         self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
 
-        # Allocate the hidden state
+    def forward(self, obs):
+        mean = self.linear_system(obs)
+        std = torch.exp(self.log_std)
+        return mean, std
+    
+    def reset(self):
+        self.linear_system.reset()
+
+class LinearSystem(nn.Module):
+    """
+    A simple linear system (a.k.a. recurrent network) of the form
+    
+            x_{t+1} = Ax_t + Bu_t,
+            y_t = Cx_t + Du_t,
+    
+    where u_t is the input (observations), y_t is the output (actions), and x_t
+    is the (hidden) state. 
+    """
+    def __init__(self, input_size, output_size, state_size):
+        super().__init__()
+        self.state_size = state_size
+
+        # Linear system matrices
+        self.A = nn.Linear(state_size, state_size, bias=False)
+        self.B = nn.Linear(input_size, state_size, bias=False)
+        self.C = nn.Linear(state_size, output_size, bias=False)
+        self.D = nn.Linear(input_size, output_size, bias=False)
+
+        # Allocate the state
         self.reset()
 
     def forward(self, u):
-        # Compute the output (mean) based on the current state
+        # Compute the output based on the current state
         y = self.C(self.x) + self.D(u)
 
-        # Advance the linear system dynamics
+        # Advance the dynamics
         self.x = self.A(self.x) + self.B(u)
 
-        # Return the mean and standard deviation of the action distribution
-        std = torch.exp(self.log_std)
-        return y, std
+        return y
     
     def reset(self):
-        self.x = torch.zeros(self.hidden_state_size)
+        self.x = torch.zeros(self.state_size)
 
 class KoopmanBilinearPolicy(PolicyNetwork):
     """
