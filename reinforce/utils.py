@@ -21,9 +21,15 @@ class ConvergencePlotter:
         """
         Make a matplotlib plot of the convergence information.
         """
-        mean_rewards = [np.mean(rewards) for rewards in self.rewards]
-        std_rewards = [np.std(rewards) for rewards in self.rewards]
-        plt.errorbar(self.iteration_numbers, mean_rewards, yerr=std_rewards)
+        mean_rewards = np.array([np.mean(rewards) for rewards in self.rewards])
+        std_rewards = np.array([np.std(rewards) for rewards in self.rewards])
+
+        plt.plot(self.iteration_numbers, mean_rewards)
+        plt.fill_between(self.iteration_numbers,
+                         mean_rewards - std_rewards,
+                         mean_rewards + std_rewards,
+                         alpha=0.2)
+
         plt.xlabel("Iteration")
         plt.ylabel("Average Reward")
         plt.show()
