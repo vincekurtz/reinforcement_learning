@@ -85,7 +85,7 @@ class RnnPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Define the mean network as an RNN
-        self.state_size = 64  # Size of the hidden state
+        self.state_size = 5  # Size of the hidden state
         self.recurrent_network = nn.RNN(self.input_size, self.state_size, nonlinearity='tanh', batch_first=True)
         self.output_network = nn.Sequential(
             nn.Linear(self.state_size, self.state_size),
@@ -99,9 +99,8 @@ class RnnPolicy(PolicyNetwork):
         self.reset()
 
     def forward(self, x):
-        _, hidden = self.recurrent_network(x.unsqueeze(0), self.hidden_state)
-        self.hidden_state = hidden.detach()
-        mean = self.output_network(hidden.squeeze(0))
+        _, self.hidden_state = self.recurrent_network(x.unsqueeze(0), self.hidden_state)
+        mean = self.output_network(self.hidden_state.squeeze(0))
         std = torch.exp(self.log_std)
         return mean, std
     
@@ -113,7 +112,7 @@ class RnnPolicy(PolicyNetwork):
         return action, log_prob
     
     def reset(self):
-        self.hidden_state = torch.zeros(1, 64)
+        self.hidden_state = torch.zeros(1, self.state_size)
 
 class KoopmanPolicy(PolicyNetwork):
     """
@@ -133,7 +132,7 @@ class KoopmanPolicy(PolicyNetwork):
         super().__init__(observation_space, action_space)
 
         # Decide on the size of the hidden state x
-        self.hidden_state_size = 4
+        self.hidden_state_size = 10
 
         # Linear system matrices
         self.A = nn.Linear(self.hidden_state_size, self.hidden_state_size, bias=False)

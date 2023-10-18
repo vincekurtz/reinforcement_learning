@@ -155,8 +155,8 @@ if __name__=="__main__":
 
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
-    #policy = RnnPolicy(env.observation_space, env.action_space)
-    policy = KoopmanPolicy(env.observation_space, env.action_space)
+    policy = RnnPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space)
 
     # Train the policy
     reinforce(env, policy, num_episodes=5000, learning_rate=1e-3)
