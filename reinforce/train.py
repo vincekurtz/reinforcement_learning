@@ -13,7 +13,7 @@ import torch
 import time
 import pickle
 
-from policies import MlpPolicy, RnnPolicy, KoopmanPolicy, KoopmanBilinearPolicy
+from policies import MlpPolicy, RnnPolicy, KoopmanPolicy, KoopmanBilinearPolicy, DeepKoopmanPolicy
 from utils import ConvergencePlotter
 from envs import InvertedPendulumNoVelocity
 
@@ -158,8 +158,9 @@ if __name__=="__main__":
     # Create the policy
     #policy = MlpPolicy(env.observation_space, env.action_space)
     #policy = RnnPolicy(env.observation_space, env.action_space)
-    policy = KoopmanPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
+    policy = DeepKoopmanPolicy(env.observation_space, env.action_space)
 
     # Check how many parameters it has
     num_params = 0

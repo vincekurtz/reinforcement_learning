@@ -167,6 +167,73 @@ class LinearSystem(nn.Module):
     def reset(self):
         self.x = torch.zeros(self.state_size)
 
+class TwoInputLinearSystem(nn.Module):
+    """
+    A linear system with two inputs, u = [u⁽¹⁾, u⁽²⁾], of the form
+
+        x_{t+1} = Ax_t + Bu_t,
+        y_t = Cx_t + Du_t.
+
+    This is useful for modeling the interconnections of multiple linear systems.
+    """
+    def __init__(self, input1_size, input2_size, output_size, state_size):
+        super().__init__()
+        self.state_size = state_size
+
+        # Linear system matrices
+        self.A = nn.Linear(state_size, state_size, bias=False)
+        self.B1 = nn.Linear(input1_size, state_size, bias=False)
+        self.B2 = nn.Linear(input2_size, state_size, bias=False)
+        self.C = nn.Linear(state_size, output_size, bias=False)
+        self.D1 = nn.Linear(input1_size, output_size, bias=False)
+        self.D2 = nn.Linear(input2_size, output_size, bias=False)
+
+        # Allocate the state
+        self.reset()
+
+    def forward(self, u1, u2):
+        # Compute the output based on the current state
+        y = self.C(self.x) + self.D1(u1) + self.D2(u2)
+
+        # Advance the dynamics
+        self.x = self.A(self.x) + self.B1(u1) + self.B2(u2)
+
+        return y
+    
+    def reset(self):
+        self.x = torch.zeros(self.state_size)
+
+class DeepKoopmanPolicy(PolicyNetwork):
+    """
+    A policy network composed of several interconnected linear systems.
+    """
+    def __init__(self, observation_space, action_space):
+        super().__init__(observation_space, action_space)
+
+        # Define several interconnected linear systems that eventually output the mean
+        self.linear_system1 = TwoInputLinearSystem(
+            self.input_size,   # First input is the system observation
+            4,                 # Second input is from the previous linear system
+            self.output_size,  # Output is the mean of the action distribution
+            4)                 # State size is fixed
+        
+        self.linear_system2 = LinearSystem(
+            self.input_size,  # Input is the system observation
+            4,                # Output goes to the next linear system
+            4)                # State size is fixed
+        
+        # Define a single parameter for the (log) standard deviation
+        self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
+        
+    def forward(self, obs):
+        mean = self.linear_system1(obs, self.linear_system2(obs))
+        std = torch.exp(self.log_std)
+        return mean, std
+    
+    def reset(self):
+        self.linear_system1.reset()
+        self.linear_system2.reset()
+
 class KoopmanBilinearPolicy(PolicyNetwork):
     """
     A recurrent policy network based on Koopman eigenfunctions. The controller
