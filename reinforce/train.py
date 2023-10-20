@@ -150,8 +150,8 @@ if __name__=="__main__":
     torch.backends.cudnn.deterministic=True
 
     # Create the environment
-    env = gym.make("Pendulum-v1")
-    #env = gym.make("InvertedPendulum-v4")
+    #env = gym.make("Pendulum-v1")
+    env = gym.make("InvertedPendulum-v4")
     #env = InvertedPendulumNoVelocity()
     #env = PendulumFixedReset()
 
@@ -163,7 +163,7 @@ if __name__=="__main__":
     #policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
     policy = DeepKoopmanPolicy(env.observation_space, env.action_space,
-                               state_sizes=[10, 10, 10, 10], output_sizes=[10, 10, 5])
+                               state_sizes=[2,2], output_sizes=[2])
 
     # Check how many parameters it has
     num_params = 0
@@ -172,5 +172,5 @@ if __name__=="__main__":
     print(f"Training a policy with {num_params} parameters")
 
     # Train the policy
-    reinforce(env, policy, print_interval=50, checkpoint_interval=1000,
-            num_episodes=1000000, learning_rate=5e-4)
+    reinforce(env, policy, print_interval=50, checkpoint_interval=500,
+            num_episodes=2001, learning_rate=5e-4)

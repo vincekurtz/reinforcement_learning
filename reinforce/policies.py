@@ -156,12 +156,8 @@ class LinearSystem(nn.Module):
         self.reset()
 
     def forward(self, u):
-        # Compute the output based on the current state
-        y = self.C(self.x) + self.D(u)
-
-        # Advance the dynamics
         self.x = self.A(self.x) + self.B(u)
-
+        y = self.C(self.x) + self.D(u)
         return y
     
     def reset(self):
@@ -192,11 +188,8 @@ class TwoInputLinearSystem(nn.Module):
         self.reset()
 
     def forward(self, u1, u2):
-        # Compute the output based on the current state
-        y = self.C(self.x) + self.D1(u1) + self.D2(u2)
-
-        # Advance the dynamics
         self.x = self.A(self.x) + self.B1(u1) + self.B2(u2)
+        y = self.C(self.x) + self.D1(u1) + self.D2(u2)
 
         return y
     
