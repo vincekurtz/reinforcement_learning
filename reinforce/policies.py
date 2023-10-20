@@ -104,22 +104,22 @@ class RnnPolicy(PolicyNetwork):
 class KoopmanPolicy(PolicyNetwork):
     """
     A recurrent policy network based on Koopman theory. The controller is
-    treated as a linear system,
+    treated as a linear system with lifted input
 
-        x_{t+1} = Ax_t + Bu_t,
-        y_t = Cx_t + Du_t,
+        z_{t+1} = Az_t + Bϕ(u_t)
+        y_t = Cz_t,
 
-    where u_t is the input (observations), y_t is the output (actions), and x_t
+    where u_t is the input (observations), y_t is the output (actions), and z_t
     is the state. Koopman tells us that any nonlinear system can be represented 
     as a linear system in an infinite-dimensional space, and the perfect
     controller can be described as a nonlinear system, so we'll learn a
-    finite-dimensional linear approximation.
+    finite-dimensional linear approximation to the perfect controller.
     """
-    def __init__(self, observation_space, action_space, lifted_state_size=10):
+    def __init__(self, observation_space, action_space, lifted_state_size=4):
         super().__init__(observation_space, action_space)
 
         # Define the mean network as a linear system
-        self.linear_system = LinearSystem(self.input_size, self.output_size, lifted_state_size)
+        self.linear_system = LiftedInputLinearSystem(self.input_size, self.output_size, lifted_state_size)
 
         # Define a single parameter for the (log) standard deviation
         self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
@@ -131,6 +131,46 @@ class KoopmanPolicy(PolicyNetwork):
     
     def reset(self):
         self.linear_system.reset()
+
+class LiftedInputLinearSystem(nn.Module):
+    """
+    A linear system of the form
+
+        z_{t+1} = Az_t + Bϕ(u_t) 
+        y_t = Cz_t,
+
+    Where u_t is the input (observations), y_t is the output (actions), and z_t
+    is the state. The input is lifted via an MLP ϕ.
+    """
+    def __init__(self, input_size, output_size, state_size, lifted_input_size=None):
+        super().__init__()
+        if lifted_input_size is None:
+            lifted_input_size = state_size
+        self.state_size = state_size
+
+        # Linear system matrices
+        self.A = nn.Linear(state_size, state_size, bias=False)
+        self.B = nn.Linear(lifted_input_size, state_size, bias=False)
+        self.C = nn.Linear(state_size, output_size, bias=False)
+
+        # MLP for lifting the input
+        hidden_size = 2*lifted_input_size
+        self.phi = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, lifted_input_size)
+        )
+
+        # Allocate the state
+        self.reset()
+
+    def forward(self, u):
+        self.z = self.A(self.z) + self.B(self.phi(u))
+        y = self.C(self.z)
+        return y
+    
+    def reset(self):
+        self.z = torch.zeros(self.state_size)
 
 class LinearSystem(nn.Module):
     """
