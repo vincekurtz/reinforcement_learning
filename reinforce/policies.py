@@ -207,32 +207,51 @@ class DeepKoopmanPolicy(PolicyNetwork):
     """
     A policy network composed of several interconnected linear systems.
     """
-    def __init__(self, observation_space, action_space):
+    def __init__(self, observation_space, action_space, state_sizes=[4, 4], output_sizes=[4]):
+        """
+        Args:
+            observation_space: The observation space of the environment.
+            action_space: The action space of the environment. state_sizes: A
+            list of the sizes of the hidden state for each linear system block
+            output_sizes: A list of the output size for each linear system block
+        """
         super().__init__(observation_space, action_space)
 
+        self.num_blocks = len(state_sizes)
+        output_sizes.append(self.output_size)   # The last block's output is the action
+        assert len(output_sizes) == self.num_blocks  
+
         # Define several interconnected linear systems that eventually output the mean
-        self.linear_system1 = TwoInputLinearSystem(
-            self.input_size,   # First input is the system observation
-            4,                 # Second input is from the previous linear system
-            self.output_size,  # Output is the mean of the action distribution
-            4)                 # State size is fixed
-        
-        self.linear_system2 = LinearSystem(
-            self.input_size,  # Input is the system observation
-            4,                # Output goes to the next linear system
-            4)                # State size is fixed
-        
+        self.linear_systems = nn.ModuleList()
+        self.linear_systems.append(
+            LinearSystem(self.input_size,  # The only input is the system observation
+                         output_sizes[0],  # Output goes to the next linear system
+                         state_sizes[0]))
+        for i in range(1, self.num_blocks):
+            self.linear_systems.append(
+                TwoInputLinearSystem(
+                    self.input_size,   # First input is the system observation
+                    output_sizes[i-1], # Second input is from the previous linear system
+                    output_sizes[i],   # Output goes to the next linear system
+                    state_sizes[i]))
+
         # Define a single parameter for the (log) standard deviation
         self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
         
     def forward(self, obs):
-        mean = self.linear_system1(obs, self.linear_system2(obs))
+        # Compute the mean by passing through the linear systems
+        mean = self.linear_systems[0](obs)
+        for i in range(1, self.num_blocks):
+            mean = self.linear_systems[i](obs, mean)
+
+        # Standard deviation is a constant parameter
         std = torch.exp(self.log_std)
         return mean, std
     
     def reset(self):
-        self.linear_system1.reset()
-        self.linear_system2.reset()
+        # Reset the state of each linear system
+        for linear_system in self.linear_systems:
+            linear_system.reset()
 
 class KoopmanBilinearPolicy(PolicyNetwork):
     """

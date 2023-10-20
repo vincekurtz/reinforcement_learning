@@ -18,15 +18,13 @@ data = {"4 lifted states": "koopman4/plotter.pkl",
         "10 lifted states": "koopman10/plotter.pkl",
         "12 lifted states": "koopman12/plotter.pkl",
         "16 lifted states": "koopman16/plotter.pkl",
-        "32 lifted states": "koopman32/plotter.pkl"}
+        "32 lifted states": "koopman32/plotter.pkl",
+        "deep koopman": "deep_444/plotter.pkl"}
 
 # Set up the plot
 plt.figure()
 plt.xlabel("Iteration")
 plt.ylabel("Reward")
-
-state_size = [4, 8, 10, 12, 16, 32]
-final_reward = []
 
 for name, fname in data.items():
     with open(fname, "rb") as f:
@@ -42,15 +40,7 @@ for name, fname in data.items():
                      np.array(mean_rewards) + np.array(std_rewards),
                      alpha=0.2)
 
-    final_reward.append(mean_rewards[-1])
-
 plt.legend()
-
-# Make a second figure comparing the final reward only
-plt.figure()
-plt.plot(state_size, final_reward, "o")
-plt.xlabel("Size of the lifted state")
-plt.ylabel("Final reward")
 
 plt.show() 
 

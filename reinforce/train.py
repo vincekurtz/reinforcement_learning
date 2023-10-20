@@ -15,7 +15,7 @@ import pickle
 
 from policies import MlpPolicy, RnnPolicy, KoopmanPolicy, KoopmanBilinearPolicy, DeepKoopmanPolicy
 from utils import ConvergencePlotter
-from envs import InvertedPendulumNoVelocity
+from envs import InvertedPendulumNoVelocity, PendulumFixedReset
 
 @torch.no_grad() 
 def evaluate_policy(env, policy, num_episodes=100):
@@ -150,9 +150,11 @@ if __name__=="__main__":
     torch.backends.cudnn.deterministic=True
 
     # Create the environment
-    #env = gym.make("Pendulum-v1")
+    env = gym.make("Pendulum-v1")
     #env = gym.make("InvertedPendulum-v4")
-    env = InvertedPendulumNoVelocity()
+    #env = InvertedPendulumNoVelocity()
+    #env = PendulumFixedReset()
+
     env.reset(seed=SEED)
 
     # Create the policy
@@ -160,7 +162,8 @@ if __name__=="__main__":
     #policy = RnnPolicy(env.observation_space, env.action_space)
     #policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
-    policy = DeepKoopmanPolicy(env.observation_space, env.action_space)
+    policy = DeepKoopmanPolicy(env.observation_space, env.action_space,
+                               state_sizes=[10, 10, 10, 10], output_sizes=[10, 10, 5])
 
     # Check how many parameters it has
     num_params = 0
@@ -169,4 +172,5 @@ if __name__=="__main__":
     print(f"Training a policy with {num_params} parameters")
 
     # Train the policy
-    reinforce(env, policy, num_episodes=30000, learning_rate=1e-3)
+    reinforce(env, policy, print_interval=50, checkpoint_interval=1000,
+            num_episodes=1000000, learning_rate=5e-4)
