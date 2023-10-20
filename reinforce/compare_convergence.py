@@ -12,9 +12,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 
-def make_a_plot(data):
+def make_convergence_plot(data):
+    """
+    Make a plot of reward vs. iteration for each run in the data dictionary.
+
+    Args:
+        data: a dictionary containing the name of each run and the filename
+    """
     # Set up the plot
-    plt.figure()
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
 
@@ -33,14 +38,33 @@ def make_a_plot(data):
                          alpha=0.2)
     plt.legend()
 
+def make_final_reward_plot(data, label=None):
+    """
+    Make a plot of the final reward for each run in the data dictionary.
+
+    Args:
+        data: a dictionary containing {x_val: filename}
+    """
+    xvals = []
+    final_rewards = []
+    for xval, fname in data.items():
+        with open(fname, "rb") as f:
+            plotter = pickle.load(f)
+
+        final_reward_mean = np.mean(plotter.rewards[-1])
+
+        xvals.append(xval)
+        final_rewards.append(final_reward_mean)
+
+    plt.plot(xvals, final_rewards, "o-", label=label)
+
 if __name__=="__main__":
-    # Dictionary containing the name of each run and the location of the pickle
+    # Data formatted for make_convergence_plot
     depth_data = {"2x1 (19 params)": "2x1_plotter.pkl",
             "2x2 (49 params)": "2x2_plotter.pkl",
             "2x3 (81 params)": "2x3_plotter.pkl",
             "2x4 (113 params)": "2x4_plotter.pkl",
             "2x5 (145 params)": "2x5_plotter.pkl"}
-
     bredth_data = {"2x1 (19 params)": "2x1_plotter.pkl",
             "3x1 (29 params)": "3x1_plotter.pkl",
             "4x1 (41 params)": "4x1_plotter.pkl",
@@ -49,14 +73,30 @@ if __name__=="__main__":
             "7x1 (89 params)": "7x1_plotter.pkl",
             "8x1 (109 params)": "8x1_plotter.pkl"}
 
-    comparison_data = {
-            "2x4 (113 params)": "2x4_plotter.pkl",
-            "8x1 (109 params)": "8x1_plotter.pkl"}
+    # Data formated for make_final_reward_plot
+    depth_data = {
+            19: "2x1_plotter.pkl",
+            49: "2x2_plotter.pkl",
+            81: "2x3_plotter.pkl",
+            113: "2x4_plotter.pkl",
+            145: "2x5_plotter.pkl"}
+    
+    bredth_data = {
+        19: "2x1_plotter.pkl",
+        29: "3x1_plotter.pkl",
+        41: "4x1_plotter.pkl",
+        55: "5x1_plotter.pkl",
+        71: "6x1_plotter.pkl",
+        89: "7x1_plotter.pkl",
+        109: "8x1_plotter.pkl"}
+    
+    plt.figure()
+    make_final_reward_plot(depth_data, label="deep koopman network (2xN)")
+    make_final_reward_plot(bredth_data, label="shallow koopman network (Nx1)")
 
-
-    make_a_plot(depth_data)
-    make_a_plot(bredth_data)
-    make_a_plot(comparison_data)
+    plt.xlabel("Number of parameters")
+    plt.ylabel("Final reward (after 2k episodes)")
+    plt.legend()
 
     plt.show() 
 
