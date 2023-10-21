@@ -63,6 +63,8 @@ class MlpPolicy(PolicyNetwork):
         self.mean_network = nn.Sequential(
             nn.Linear(self.input_size, 64),
             nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
             nn.Linear(64, self.output_size)
         )
 
@@ -154,9 +156,11 @@ class LiftedInputLinearSystem(nn.Module):
         self.C = nn.Linear(state_size, output_size, bias=False)
 
         # MLP for lifting the input
-        hidden_size = 2*lifted_input_size
+        hidden_size = lifted_input_size
         self.phi = nn.Sequential(
             nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, lifted_input_size)
         )

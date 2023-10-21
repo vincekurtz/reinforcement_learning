@@ -130,17 +130,9 @@ def reinforce(env, policy, num_episodes=1000, gamma=0.99, learning_rate=0.001, p
             fname = f"checkpoints/policy_{episode}.pt"
             print(f"Saving checkpoint to {fname}")
             torch.save(policy.state_dict(), fname)
+
+    return policy, plotter
     
-    # Save the policy
-    torch.save(policy.state_dict(), "policy.pt")
-
-    # Save a pickle of the plotter in case we want to look at it later
-    with open("plotter.pkl", "wb") as f:
-        pickle.dump(plotter, f)
-
-    # Make plots of the convergence
-    plotter.plot()
-
 if __name__=="__main__":
     # Set random seed for reproducability
     SEED = 1
@@ -151,16 +143,17 @@ if __name__=="__main__":
 
     # Create the environment
     #env = gym.make("Pendulum-v1")
-    env = gym.make("InvertedPendulum-v4")
+    #env = gym.make("InvertedPendulum-v4")
     #env = InvertedPendulumNoVelocity()
     #env = PendulumFixedReset()
+    env = gym.make("HalfCheetah-v4")
 
     env.reset(seed=SEED)
 
     # Create the policy
-    #policy = MlpPolicy(env.observation_space, env.action_space)
+    policy = MlpPolicy(env.observation_space, env.action_space)
     #policy = RnnPolicy(env.observation_space, env.action_space)
-    policy = KoopmanPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
     #policy = DeepKoopmanPolicy(env.observation_space, env.action_space,
     #                           state_sizes=[2,2,2,2], output_sizes=[2,2,2])
@@ -172,5 +165,16 @@ if __name__=="__main__":
     print(f"Training a policy with {num_params} parameters")
 
     # Train the policy
-    reinforce(env, policy, print_interval=50, checkpoint_interval=500,
-            num_episodes=5001, learning_rate=5e-4)
+    policy, plotter = reinforce(env, policy, print_interval=50, checkpoint_interval=500,
+            num_episodes=50001, learning_rate=1e-3)
+    
+    # Save the policy
+    torch.save(policy.state_dict(), "policy.pt")
+
+    # Save a pickle of the plotter in case we want to look at it later
+    with open("plotter.pkl", "wb") as f:
+        pickle.dump(plotter, f)
+
+    # Make plots of the convergence
+    #plotter.plot()
+
