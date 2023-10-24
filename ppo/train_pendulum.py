@@ -21,7 +21,7 @@ vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1)
 model = PPO(CustomActorCriticPolicy, vec_env, gamma=0.98, learning_rate=1e-3, verbose=1)
 
 # Do the learning
-model.learn(total_timesteps=100_000)
+model.learn(total_timesteps=300_000)
 
 # Save the model
 model.save("pendulum")
