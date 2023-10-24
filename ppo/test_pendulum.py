@@ -16,7 +16,9 @@ from stable_baselines3.common.env_util import make_vec_env
 from envs import PendulumWithObservationHistory
 
 # Set up the environment
-vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1, env_kwargs={"render_mode": "human"})
+vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1, 
+                       env_kwargs={"render_mode": "human", 
+                                   "history_length": 56})
 
 # Load the trained model
 model = PPO.load("pendulum")

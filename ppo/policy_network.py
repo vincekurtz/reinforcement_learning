@@ -11,7 +11,7 @@ class CustomNetwork(nn.Module):
 
         # The custom network must have these output dimensions as attributes
         # with these names
-        self.latent_dim_pi = 64
+        self.latent_dim_pi = 1
         self.latent_dim_vf = 64
 
         self.policy_net = nn.Sequential(
