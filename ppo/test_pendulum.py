@@ -13,8 +13,10 @@ import time
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 
+from envs import PendulumWithObservationHistory
+
 # Set up the environment
-vec_env = make_vec_env("Pendulum-v1", n_envs=1)
+vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1, env_kwargs={"render_mode": "human"})
 
 # Load the trained model
 model = PPO.load("pendulum")
@@ -27,4 +29,6 @@ for i in range(500):
     action, _state = model.predict(obs, deterministic=True)
     obs, reward, done, info = vec_env.step(action)
     vec_env.render("human")
+
+    time.sleep(0.01)
 
