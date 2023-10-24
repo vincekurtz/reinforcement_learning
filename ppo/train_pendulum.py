@@ -15,8 +15,9 @@ from policy_network import CustomActorCriticPolicy
 from envs import PendulumWithObservationHistory
 
 # Set up the environment (a.k.a. plant)
-vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1,
-                       env_kwargs={"history_length": 10})
+#vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1,
+#                       env_kwargs={"history_length": 1})
+vec_env = make_vec_env("Pendulum-v1", n_envs=1)
 
 # set up the model (a.k.a. controller)
 model = PPO(CustomActorCriticPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
@@ -24,7 +25,7 @@ model = PPO(CustomActorCriticPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
             verbose=1)
 
 # Do the learning
-model.learn(total_timesteps=500_000)
+model.learn(total_timesteps=200_000)
 
 # Save the model
 model.save("pendulum")

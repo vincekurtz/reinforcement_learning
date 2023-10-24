@@ -20,9 +20,11 @@ class MultiKoopmanPolicy(nn.Module):
         # Koopman linearization around a different equilibrium
         self.linear_system2 = nn.Linear(input_size, output_size, bias=False)
 
-        # The chooser maps the input to a number between 0 and 1, which is used to decide which linear system to use
+        # The chooser maps the input to a number between 0 and 1, which is used
+        # to decide which linear system to use
         self.chooser = nn.Sequential(
-            nn.Linear(input_size, 1), nn.Sigmoid()
+            nn.Linear(input_size, 1, bias=False), 
+            nn.Sigmoid()
         )
 
     def forward(self, observations):
