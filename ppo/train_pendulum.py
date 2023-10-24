@@ -16,7 +16,7 @@ from envs import PendulumWithObservationHistory
 
 # Set up the environment (a.k.a. plant)
 vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1,
-                       env_kwargs={"history_length": 32})
+                       env_kwargs={"history_length": 10})
 
 # set up the model (a.k.a. controller)
 model = PPO(CustomActorCriticPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 

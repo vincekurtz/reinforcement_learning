@@ -18,7 +18,7 @@ from envs import PendulumWithObservationHistory
 # Set up the environment
 vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1, 
                        env_kwargs={"render_mode": "human", 
-                                   "history_length": 56})
+                                   "history_length": 10})
 
 # Load the trained model
 model = PPO.load("pendulum")
@@ -27,7 +27,7 @@ model = PPO.load("pendulum")
 obs = vec_env.reset()
 
 # Run a little simulation
-for i in range(500):
+for i in range(1000):
     action, _state = model.predict(obs, deterministic=True)
     obs, reward, done, info = vec_env.step(action)
     vec_env.render("human")

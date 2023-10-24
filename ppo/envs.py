@@ -22,8 +22,9 @@ class PendulumWithObservationHistory(gym.Env):
         self.action_space = self.env.action_space
 
     def reset(self, **kwargs):
+        self.history = np.zeros((self.history_length, 3))
         obs, info = self.env.reset(**kwargs)
-        self.history = np.tile(obs, (self.history_length, 1))
+        self.history[0] = obs
         return self._get_obs(), info
 
     def step(self, action):
