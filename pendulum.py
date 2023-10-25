@@ -26,7 +26,7 @@ def make_environment(render_mode=None):
     """
     return make_vec_env(EnvWithObservationHistory, n_envs=1,
                         env_kwargs={"env_name": "Pendulum-v1", 
-                                    "history_length": 1,
+                                    "history_length": 10,
                                     "render_mode": render_mode})
 
 def train():

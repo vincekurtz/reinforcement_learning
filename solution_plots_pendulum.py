@@ -35,10 +35,10 @@ def plot_pendulum_vector_field(n=25):
     plt.ylabel(r"$\dot{\theta}$")
 
 @torch.no_grad
-def plot_switching_surface(model):
+def plot_switching_surface(model, history_length=10):
     """
-    Make a contour plot of the switching surface. Assumes that the model was
-    trained with history_length=1 (i.e., no history).
+    Make a contour plot of the switching surface. Just uses the first
+    observation, and pads the rest with zeros.
     """
     def compute_switching_coefficient(obs):
         """
@@ -46,7 +46,7 @@ def plot_switching_surface(model):
         Handles conversion between torch and numpy.
         """
         obs = torch.from_numpy(obs).float().to(model.device)
-        sigma = model.policy.mlp_extractor.policy_chooser(obs)
+        sigma = model.policy.mlp_extractor.chooser(obs)
         return sigma.cpu().numpy()
 
     # Sample a bunch of initial states
@@ -56,7 +56,7 @@ def plot_switching_surface(model):
 
     # Set up a grid of observations
     theta_grid, theta_dot_grid = np.meshgrid(thetas, theta_dots)
-    obs = np.zeros((n*n, 3))
+    obs = np.zeros((n*n, 3*history_length))
     obs[:,0] = np.cos(theta_grid.flatten())
     obs[:,1] = np.sin(theta_grid.flatten())
     obs[:,2] = theta_dot_grid.flatten()
@@ -71,10 +71,9 @@ def plot_switching_surface(model):
     plt.colorbar(label="Switching coefficient")
 
 @torch.no_grad
-def plot_value_function(model):
+def plot_value_function(model, history_length=10):
     """
-    Make a contour plot of the value function. Assumes that the model was
-    trained with history_length=1 (i.e., no history).
+    Make a contour plot of the value function.
     """
     def compute_value(obs):
         """
@@ -93,7 +92,7 @@ def plot_value_function(model):
 
     # Set up a grid of observations
     theta_grid, theta_dot_grid = np.meshgrid(thetas, theta_dots)
-    obs = np.zeros((n*n, 3))
+    obs = np.zeros((n*n, 3 * history_length))
     obs[:,0] = np.cos(theta_grid.flatten())
     obs[:,1] = np.sin(theta_grid.flatten())
     obs[:,2] = theta_dot_grid.flatten()
