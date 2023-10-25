@@ -48,6 +48,9 @@ class KoopmanMlpExtractor(nn.Module):
         # Weight the outputs by the switching coefficients
         output = (sigma.unsqueeze(-1) * output).sum(dim=1)  # shape: [batch_size, output_size]
 
+        # Normalize output so that weighting coefficients sum to 1
+        output /= sigma.sum(dim=1, keepdim=True)
+
         return output
 
     def forward_critic(self, x):
