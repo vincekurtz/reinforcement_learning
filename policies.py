@@ -1,5 +1,26 @@
+import torch
 from torch import nn
 from stable_baselines3.common.policies import ActorCriticPolicy
+
+class Quadratic(nn.Module):
+    """
+    A simple quadratic function
+
+        y = x'Ax + b'x + c
+
+    where A, b, and c are learned parameters.
+    """
+    def __init__(self, input_size):
+        super().__init__()
+        self.input_size = input_size
+
+        self.A = nn.Parameter(torch.randn(input_size, input_size), requires_grad=True)
+        self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
+        self.c = nn.Parameter(torch.randn(1), requires_grad=True)
+
+    def forward(self, x):
+        y = (x @ self.A @ x.T).diag() + x @ self.b + self.c
+        return y.view(-1, 1)
 
 class KoopmanNetwork(nn.Module):
     """
@@ -22,15 +43,39 @@ class KoopmanNetwork(nn.Module):
         # The chooser maps the input to a number between 0 and 1, which is used
         # to decide which linear system to use
         self.chooser = nn.Sequential(
-            nn.Linear(input_size, 2, bias=False), 
-            nn.Sigmoid()
+            nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, 2), nn.Sigmoid()
         )
+        #self.chooser = nn.Sequential(
+        #    nn.Linear(input_size, 2, bias=False), 
+        #    nn.Sigmoid()
+        #)
 
     def forward(self, observations):
         u1 = self.linear_system1(observations)
         u2 = self.linear_system2(observations)
         sigma = self.chooser(observations)
         return sigma[:,0:1]*u1 + sigma[:,1:2]*u2
+    
+class PiecewiseQuadratic(nn.Module):
+    def __init__(self, input_size):
+        super().__init__()
+        self.input_size = input_size
+        self.output_size = 1
+
+        self.quadratic1 = Quadratic(input_size)
+        self.quadratic2 = Quadratic(input_size)
+
+        self.chooser = nn.Sequential(
+            nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, 2), nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        y1 = self.quadratic1(x)
+        y2 = self.quadratic2(x)
+        sigma = self.chooser(x)
+        return sigma[:,0:1]*y1 + sigma[:,1:2]*y2
 
 class KoopmanMlpExtractor(nn.Module):
     """
@@ -44,15 +89,21 @@ class KoopmanMlpExtractor(nn.Module):
         # layer that maps from 'latent_dim_pi' to actions and from
         # 'latent_dim_vf' to values
         self.latent_dim_pi = output_size
-        self.latent_dim_vf = 64
+        self.latent_dim_vf = 1
 
         # The policy network is a Koopman network
-        self.policy_net = KoopmanNetwork(input_size, output_size)
+        #self.policy_net = KoopmanNetwork(input_size, output_size)
+        self.policy_net = nn.Sequential(
+            nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, output_size), nn.Sigmoid()
+        )
 
         # The value function is a simple MLP
-        self.value_net = nn.Sequential(
-                nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
-                nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())
+        #self.value_net = nn.Sequential(
+        #        nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
+        #        nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())
+        #self.value_net = nn.Linear(input_size, self.latent_dim_vf)
+        self.value_net = PiecewiseQuadratic(input_size)
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)

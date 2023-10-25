@@ -42,7 +42,7 @@ def train():
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
-    print("Training a policy with {num_params} parameters")
+    print(f"Training a policy with {num_params} parameters")
 
     # Do the learning
     model.learn(total_timesteps=200_000)

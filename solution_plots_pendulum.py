@@ -46,7 +46,7 @@ def plot_switching_surface(model):
         Handles conversion between torch and numpy.
         """
         obs = torch.from_numpy(obs).float().to(model.device)
-        sigma = model.policy.mlp_extractor.policy_net.chooser(obs)
+        sigma = model.policy.mlp_extractor.value_net.chooser(obs)
         return sigma.cpu().numpy()
 
     # Sample a bunch of initial states
@@ -108,7 +108,12 @@ def plot_value_function(model):
 
 if __name__=="__main__":
     model = PPO.load("trained_models/pendulum")
-    #plot_value_function(model)
+
+    plt.figure()
+    plot_value_function(model)
+    plot_pendulum_vector_field()
+
+    plt.figure()
     plot_switching_surface(model)
     plot_pendulum_vector_field()
 
