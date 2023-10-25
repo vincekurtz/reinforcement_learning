@@ -46,7 +46,7 @@ def plot_switching_surface(model):
         Handles conversion between torch and numpy.
         """
         obs = torch.from_numpy(obs).float().to(model.device)
-        sigma = model.policy.mlp_extractor.value_net.chooser(obs)
+        sigma = model.policy.mlp_extractor.policy_chooser(obs)
         return sigma.cpu().numpy()
 
     # Sample a bunch of initial states
@@ -82,7 +82,7 @@ def plot_value_function(model):
         Handles conversion between torch and numpy.
         """
         obs = torch.from_numpy(obs).float().to(model.device)
-        value_hidden = model.policy.mlp_extractor.value_net(obs)
+        value_hidden = model.policy.mlp_extractor.forward_critic(obs)
         value = model.policy.value_net(value_hidden)
         return value.cpu().numpy()
     

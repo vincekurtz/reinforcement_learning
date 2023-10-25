@@ -91,28 +91,34 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_pi = output_size
         self.latent_dim_vf = 1
 
-        # The policy network is a Koopman network
-        #self.policy_net = KoopmanNetwork(input_size, output_size)
-        self.policy_net = nn.Sequential(
-            nn.Linear(input_size, 64), nn.ReLU(),
-            nn.Linear(64, output_size), nn.Sigmoid()
-        )
+        # Policy is piecewise linear
+        self.linear_system1 = nn.Linear(input_size, output_size, bias=False)
+        self.linear_system2 = nn.Linear(input_size, output_size, bias=False)
 
-        # The value function is a simple MLP
-        #self.value_net = nn.Sequential(
-        #        nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
-        #        nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())
-        #self.value_net = nn.Linear(input_size, self.latent_dim_vf)
-        self.value_net = PiecewiseQuadratic(input_size)
+        # Value function is piecewise quadratic
+        self.quadratic1 = Quadratic(input_size)
+        self.quadratic2 = Quadratic(input_size)
+
+        # We define a switching surface between regimes with a neural net. This
+        # network outputs a number between 0 and 1
+        self.chooser = nn.Sequential(
+            nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, 2), nn.Sigmoid())
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
     def forward_actor(self, x):
-        return self.policy_net(x)
+        y1 = self.linear_system1(x)
+        y2 = self.linear_system2(x)
+        sigma = self.chooser(x)
+        return sigma[:,0:1]*y1 + sigma[:,1:2]*y2
 
     def forward_critic(self, x):
-        return self.value_net(x)
+        y1 = self.quadratic1(x)
+        y2 = self.quadratic2(x)
+        sigma = self.chooser(x)
+        return sigma[:,0:1]*y1 + sigma[:,1:2]*y2
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
