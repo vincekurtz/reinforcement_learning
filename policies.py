@@ -36,18 +36,20 @@ class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
     """
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super().__init__()
 
         # The custom network must have these output dimensions as attributes
-        # with these names
-        output_size = 1    # action space size for pendulum
+        # with these names. The PPO implementation adds an additional linear
+        # layer that maps from 'latent_dim_pi' to actions and from
+        # 'latent_dim_vf' to values
         self.latent_dim_pi = output_size
         self.latent_dim_vf = 64
 
-        # The PPO implementation adds an additional linear layer that maps from
-        # 'latent_dim_pi' to actions
+        # The policy network is a Koopman network
         self.policy_net = KoopmanNetwork(input_size, output_size)
+
+        # The value function is a simple MLP
         self.value_net = nn.Sequential(
                 nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
                 nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())
@@ -73,4 +75,5 @@ class KoopmanPolicy(ActorCriticPolicy):
                 **kwargs)
 
     def _build_mlp_extractor(self):
-        self.mlp_extractor = KoopmanMlpExtractor(self.features_dim)
+        self.mlp_extractor = KoopmanMlpExtractor(
+            self.features_dim, self.action_space.shape[0])
