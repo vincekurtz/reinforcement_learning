@@ -34,7 +34,7 @@ def train():
     vec_env = make_environment() 
     
     # set up the model (a.k.a. controller)
-    model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
+    model = PPO(KoopmanPolicy, vec_env, gamma=0.9999,
                 tensorboard_log="/tmp/swimmer_tensorboard/",
                 verbose=1, policy_kwargs={"num_linear_systems": 2})
     #model = PPO('MlpPolicy', vec_env, verbose=1, 
@@ -45,7 +45,7 @@ def train():
     print(f"Training a policy with {num_params} parameters")
 
     # Do the learning
-    model.learn(total_timesteps=200_000)
+    model.learn(total_timesteps=1_000_000)
 
     # Save the model
     model.save("trained_models/swimmer")
