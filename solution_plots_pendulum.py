@@ -35,7 +35,7 @@ def plot_pendulum_vector_field(n=25):
     plt.ylabel(r"$\dot{\theta}$")
 
 @torch.no_grad
-def plot_switching_surface(model, history_length=10):
+def plot_switching_coefficient(model, history_length=10, surface_index=0):
     """
     Make a contour plot of the switching surface. Just uses the first
     observation, and pads the rest with zeros.
@@ -62,7 +62,7 @@ def plot_switching_surface(model, history_length=10):
     obs[:,2] = theta_dot_grid.flatten()
 
     # Compute the switching coefficient for each observation
-    sigmas = compute_switching_coefficient(obs)[:,0]
+    sigmas = compute_switching_coefficient(obs)[:,surface_index]
     sigma_grid = sigmas.reshape((n,n))
 
     # Plot the switching surface
@@ -113,7 +113,7 @@ if __name__=="__main__":
     plot_pendulum_vector_field()
 
     plt.figure()
-    plot_switching_surface(model)
+    plot_switching_coefficient(model, surface_index=0)
     plot_pendulum_vector_field()
 
     plt.show()

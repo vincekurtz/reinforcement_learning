@@ -38,7 +38,7 @@ def train():
     # set up the model (a.k.a. controller)
     model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
                 tensorboard_log="/tmp/pendulum_tensorboard/",
-                verbose=1)
+                verbose=1, policy_kwargs={"num_linear_systems": 2})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
