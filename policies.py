@@ -30,6 +30,7 @@ class KoopmanMlpExtractor(nn.Module):
         # Value function is a simple MLP
         self.value_net = nn.Sequential(
             nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, 64), nn.ReLU(),
             nn.Linear(64, self.latent_dim_vf))
 
     def forward(self, x):

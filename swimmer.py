@@ -24,7 +24,7 @@ def make_environment(render_mode=None):
     """
     return make_vec_env(EnvWithObservationHistory, n_envs=1,
                         env_kwargs={"env_name": "Swimmer-v4", 
-                                    "history_length": 10,
+                                    "history_length": 32,
                                     "render_mode": render_mode})
 
 def train():
@@ -36,7 +36,7 @@ def train():
     # set up the model (a.k.a. controller)
     model = PPO(KoopmanPolicy, vec_env, gamma=0.9999,
                 tensorboard_log="/tmp/swimmer_tensorboard/",
-                verbose=1, policy_kwargs={"num_linear_systems": 2})
+                verbose=1, policy_kwargs={"num_linear_systems": 8})
     #model = PPO('MlpPolicy', vec_env, verbose=1, 
     #            tensorboard_log="/tmp/swimmer_tensorboard/")
 
