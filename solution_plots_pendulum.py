@@ -66,12 +66,53 @@ def plot_learned_switching_surface(model):
             #plt.scatter([theta_init], [theta_dot_init], color='r')
             plt.scatter(final_state[0], final_state[1], color='blue', edgecolors=None, alpha=sigma[1]/2)
 
+@torch.no_grad
+def plot_value_function(model):
+    """
+    Make a contour plot of the value function. Assumes that the model was
+    trained with history_length=1 (i.e., no history).
+    """
+    def compute_value(obs):
+        """
+        A little helper function to compute the value for a given observation.
+        Handles conversion between torch and numpy.
+        """
+        obs = torch.from_numpy(obs).float().to(model.device)
+        value_hidden = model.policy.mlp_extractor.value_net(obs)
+        value = model.policy.value_net(value_hidden)
+        return value.cpu().numpy()
+    
+    # Sample a bunch of initial states
+    n = 150
+    thetas = np.linspace(-np.pi, 2*np.pi, n)
+    theta_dots = np.linspace(-8, 8, n)
+
+    # Set up a grid of observations
+    theta_grid, theta_dot_grid = np.meshgrid(thetas, theta_dots)
+    obs = np.zeros((n*n, 3))
+    obs[:,0] = np.cos(theta_grid.flatten())
+    obs[:,1] = np.sin(theta_grid.flatten())
+    obs[:,2] = theta_dot_grid.flatten()
+
+    # Compute the value for each observation
+    values = compute_value(obs)
+    value_grid = values.reshape((n,n))
+
+    # Plot the value function
+    plt.contourf(theta_grid, theta_dot_grid, value_grid, 20, cmap='RdYlBu')
+
+    # Add a little scale bar with label
+    plt.colorbar(label="Value")
+
+
+
 if __name__=="__main__":
-    # Plot the vector field for the pendulum
+    model = PPO.load("trained_models/pendulum")
+    plot_value_function(model)
     plot_pendulum_vector_field()
 
     # Plot the switching surface for the learned policy
-    model = PPO.load("trained_models/pendulum")
-    plot_learned_switching_surface(model)
+    #plot_learned_switching_surface(model)
+
 
     plt.show()
