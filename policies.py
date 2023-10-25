@@ -1,8 +1,7 @@
-import torch
 from torch import nn
 from stable_baselines3.common.policies import ActorCriticPolicy
 
-class MultiKoopmanPolicy(nn.Module):
+class KoopmanNetwork(nn.Module):
     """
     A neural net that maps from a history of observations to control actions.
     Does so by building several linear maps, each of which is based on a learned
@@ -33,7 +32,7 @@ class MultiKoopmanPolicy(nn.Module):
         sigma = self.chooser(observations)
         return sigma[:,0:1]*u1 + sigma[:,1:2]*u2
 
-class CustomNetwork(nn.Module):
+class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
     """
@@ -48,7 +47,7 @@ class CustomNetwork(nn.Module):
 
         # The PPO implementation adds an additional linear layer that maps from
         # 'latent_dim_pi' to actions
-        self.policy_net = MultiKoopmanPolicy(input_size, output_size)
+        self.policy_net = KoopmanNetwork(input_size, output_size)
         self.value_net = nn.Sequential(
                 nn.Linear(input_size, self.latent_dim_vf), nn.ReLU(),
                 nn.Linear(self.latent_dim_vf, self.latent_dim_vf), nn.ReLU())
@@ -62,12 +61,16 @@ class CustomNetwork(nn.Module):
     def forward_critic(self, x):
         return self.value_net(x)
 
-class CustomActorCriticPolicy(ActorCriticPolicy):
+class KoopmanPolicy(ActorCriticPolicy):
+    """
+    A custom actor-critic policy that uses our custom Koopman architecture.
+    Structured so that the SB3 PPO implementation can use our architecture
+    directly.
+    """
     def __init__(self, observation_space, action_space, lr_schedule, *args,
             **kwargs):
         super().__init__(observation_space, action_space, lr_schedule, *args,
                 **kwargs)
 
     def _build_mlp_extractor(self):
-        self.mlp_extractor = CustomNetwork(self.features_dim)
-
+        self.mlp_extractor = KoopmanMlpExtractor(self.features_dim)

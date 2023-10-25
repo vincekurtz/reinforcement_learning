@@ -60,18 +60,18 @@ def plot_learned_switching_surface(model):
             with torch.no_grad():
                 observation = history.flatten()
                 observation = torch.from_numpy(observation).float().to(model.device)
-                sigma = switching_model(observation).item()
+                sigma = switching_model(observation).cpu().numpy()
 
             # Plot a dot shaded by the value of sigma
             #plt.scatter([theta_init], [theta_dot_init], color='r')
-            plt.scatter(final_state[0], final_state[1], color='blue', edgecolors=None, alpha=sigma/2)
+            plt.scatter(final_state[0], final_state[1], color='blue', edgecolors=None, alpha=sigma[1]/2)
 
 if __name__=="__main__":
     # Plot the vector field for the pendulum
     plot_pendulum_vector_field()
 
     # Plot the switching surface for the learned policy
-    model = PPO.load("pendulum")
+    model = PPO.load("trained_models/pendulum")
     plot_learned_switching_surface(model)
 
     plt.show()
