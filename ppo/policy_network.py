@@ -1,4 +1,4 @@
-import torch as th
+import torch
 from torch import nn
 from stable_baselines3.common.policies import ActorCriticPolicy
 
@@ -23,7 +23,7 @@ class MultiKoopmanPolicy(nn.Module):
         # The chooser maps the input to a number between 0 and 1, which is used
         # to decide which linear system to use
         self.chooser = nn.Sequential(
-            nn.Linear(input_size, 1, bias=False), 
+            nn.Linear(input_size, 2, bias=False), 
             nn.Sigmoid()
         )
 
@@ -31,8 +31,7 @@ class MultiKoopmanPolicy(nn.Module):
         u1 = self.linear_system1(observations)
         u2 = self.linear_system2(observations)
         sigma = self.chooser(observations)
-        
-        return sigma*u1 + (1-sigma)*u2
+        return sigma[:,0:1]*u1 + sigma[:,1:2]*u2
 
 class CustomNetwork(nn.Module):
     """

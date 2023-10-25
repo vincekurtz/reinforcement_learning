@@ -142,21 +142,22 @@ if __name__=="__main__":
     torch.backends.cudnn.deterministic=True
 
     # Create the environment
-    #env = gym.make("Pendulum-v1")
+    env = gym.make("Pendulum-v1")
     #env = gym.make("InvertedPendulum-v4")
     #env = InvertedPendulumNoVelocity()
     #env = PendulumFixedReset()
-    env = gym.make("HalfCheetah-v4")
+    #env = gym.make("HalfCheetah-v4")
 
     env.reset(seed=SEED)
 
     # Create the policy
-    policy = MlpPolicy(env.observation_space, env.action_space)
+    #policy = MlpPolicy(env.observation_space, env.action_space)
     #policy = RnnPolicy(env.observation_space, env.action_space)
-    #policy = KoopmanPolicy(env.observation_space, env.action_space)
+    #policy = KoopmanPolicy(env.observation_space, env.action_space,
+    #        lifted_state_size=32)
     #policy = KoopmanBilinearPolicy(env.observation_space, env.action_space)
-    #policy = DeepKoopmanPolicy(env.observation_space, env.action_space,
-    #                           state_sizes=[2,2,2,2], output_sizes=[2,2,2])
+    policy = DeepKoopmanPolicy(env.observation_space, env.action_space,
+                               state_sizes=[128], output_sizes=[])
 
     # Check how many parameters it has
     num_params = 0
@@ -166,7 +167,7 @@ if __name__=="__main__":
 
     # Train the policy
     policy, plotter = reinforce(env, policy, print_interval=50, checkpoint_interval=500,
-            num_episodes=50001, learning_rate=1e-3)
+            num_episodes=50001, learning_rate=1e-4)
     
     # Save the policy
     torch.save(policy.state_dict(), "policy.pt")

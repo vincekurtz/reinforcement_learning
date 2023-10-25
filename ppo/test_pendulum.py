@@ -18,7 +18,7 @@ from envs import PendulumWithObservationHistory
 # Set up the environment
 vec_env = make_vec_env(PendulumWithObservationHistory, n_envs=1, 
                        env_kwargs={"render_mode": "human", 
-                                   "history_length": 1})
+                                   "history_length": 10})
 
 # Load the trained model
 model = PPO.load("pendulum")

@@ -181,7 +181,7 @@ class LinearSystem(nn.Module):
     A simple linear system (a.k.a. recurrent network) of the form
     
             x_{t+1} = Ax_t + Bu_t,
-            y_t = Cx_t + Du_t,
+            y_t = Cx_t
     
     where u_t is the input (observations), y_t is the output (actions), and x_t
     is the (hidden) state. 
@@ -194,14 +194,13 @@ class LinearSystem(nn.Module):
         self.A = nn.Linear(state_size, state_size, bias=False)
         self.B = nn.Linear(input_size, state_size, bias=False)
         self.C = nn.Linear(state_size, output_size, bias=False)
-        self.D = nn.Linear(input_size, output_size, bias=False)
 
         # Allocate the state
         self.reset()
 
     def forward(self, u):
         self.x = self.A(self.x) + self.B(u)
-        y = self.C(self.x) + self.D(u)
+        y = self.C(self.x)
         return y
     
     def reset(self):
@@ -212,7 +211,7 @@ class TwoInputLinearSystem(nn.Module):
     A linear system with two inputs, u = [u⁽¹⁾, u⁽²⁾], of the form
 
         x_{t+1} = Ax_t + Bu_t,
-        y_t = Cx_t + Du_t.
+        y_t = Cx_t
 
     This is useful for modeling the interconnections of multiple linear systems.
     """
@@ -225,16 +224,13 @@ class TwoInputLinearSystem(nn.Module):
         self.B1 = nn.Linear(input1_size, state_size, bias=False)
         self.B2 = nn.Linear(input2_size, state_size, bias=False)
         self.C = nn.Linear(state_size, output_size, bias=False)
-        self.D1 = nn.Linear(input1_size, output_size, bias=False)
-        self.D2 = nn.Linear(input2_size, output_size, bias=False)
 
         # Allocate the state
         self.reset()
 
     def forward(self, u1, u2):
         self.x = self.A(self.x) + self.B1(u1) + self.B2(u2)
-        y = self.C(self.x) + self.D1(u1) + self.D2(u2)
-
+        y = self.C(self.x)
         return y
     
     def reset(self):
@@ -274,7 +270,7 @@ class DeepKoopmanPolicy(PolicyNetwork):
 
         # Define a single parameter for the (log) standard deviation
         self.log_std = nn.Parameter(torch.zeros(self.output_size), requires_grad=True)
-        
+      
     def forward(self, obs):
         # Compute the mean by passing through the linear systems
         mean = self.linear_systems[0](obs)
@@ -322,11 +318,9 @@ class KoopmanBilinearPolicy(PolicyNetwork):
         self.reset()
 
     def forward(self, u):
-        # Compute the output (mean) based on the current state
-        y = self.C(self.z)
-
-        # Advance the linear system dynamics
+        # Compute the ouptut of the system (mean)
         self.z = self.Lambda * self.z + self.B(u, self.z)
+        y = self.C(self.z)
 
         # Return the mean and standard deviation of the action distribution
         std = torch.exp(self.log_std)

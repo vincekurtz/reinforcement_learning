@@ -12,14 +12,15 @@ from policies import MlpPolicy, RnnPolicy, KoopmanPolicy, DeepKoopmanPolicy
 from envs import InvertedPendulumNoVelocity, PendulumFixedReset
 
 # Set up the environment
-#env = gym.make('Pendulum-v1', render_mode="human")
-env = gym.make('HalfCheetah-v4', render_mode="human")
+env = gym.make('Pendulum-v1', render_mode="human")
+#env = gym.make('HalfCheetah-v4', render_mode="human")
 #env = gym.make("InvertedPendulum-v4", render_mode="human")
 #env = InvertedPendulumNoVelocity(render_mode="human")
 #env = PendulumFixedReset(render_mode="human")
 
 # Load the policy network from disk
-policy_network = MlpPolicy(env.observation_space, env.action_space)
+policy_network = DeepKoopmanPolicy(env.observation_space, env.action_space,
+        state_sizes = [128], output_sizes=[])
 policy_network.load_state_dict(torch.load('policy.pt'))
 
 # Run the policy
