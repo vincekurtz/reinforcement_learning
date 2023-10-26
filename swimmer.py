@@ -40,6 +40,7 @@ def make_environment2(render_mode=None):
     env.action_space.seed(SEED)
     env = Monitor(env)
     env = TimeFeatureWrapper(env)
+    env = HistoryWrapper(env, 1)
     vec_env = DummyVecEnv([lambda: env])
     vec_env.seed(SEED)
 
@@ -83,12 +84,6 @@ def test():
         vec_env.render("human")
 
 if __name__=="__main__":
-    vec_env1 = make_environment()
-    vec_env2 = make_environment2()
-
-    print(vec_env1.envs[0])
-    print(vec_env2.envs[0])
-
     # Must run with --train or --test
     if len(sys.argv) != 2 or sys.argv[1] not in ["--train", "--test"]:
         print("Usage: python swimmer.py [--train, --test]")
