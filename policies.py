@@ -38,19 +38,23 @@ class KoopmanMlpExtractor(nn.Module):
         self.linear_systems = nn.ModuleList([
             nn.Linear(input_size, output_size, bias=False)
             for _ in range(num_linear_systems)])
+        
+        # Value function is piecewise quadratic with the same switching surface
+        self.quadratic_systems = nn.ModuleList([
+            Quadratic(input_size)
+            for _ in range(num_linear_systems)])
 
         # We define a switching surface between regimes with a neural net. This
         # network outputs scores in [0,1] that determine which linear layer is active
+        #chooser_network_hidden_size = 64
+        #self.chooser = nn.Sequential(
+        #    nn.Linear(input_size, chooser_network_hidden_size), nn.ReLU(),
+        #    nn.Linear(chooser_network_hidden_size, num_linear_systems),
+        #    nn.Sigmoid())
         self.chooser = nn.Sequential(
-            nn.Linear(input_size, num_linear_systems, bias=False), 
-            nn.Sigmoid())
-        
-        # Value function is a simple MLP
-        self.value_net = Quadratic(input_size)
-        #self.value_net = nn.Sequential(
-        #    nn.Linear(input_size, 256), nn.ReLU(),
-        #    nn.Linear(256, 256), nn.ReLU(),
-        #    nn.Linear(256, self.latent_dim_vf))
+            nn.Linear(input_size, num_linear_systems),
+            nn.Sigmoid()
+        )
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
@@ -67,12 +71,22 @@ class KoopmanMlpExtractor(nn.Module):
         output = (sigma.unsqueeze(-1) * output).sum(dim=1)  # shape: [batch_size, output_size]
 
         # Normalize output so that weighting coefficients sum to 1
-        output /= sigma.sum(dim=1, keepdim=True)
+        #output /= sigma.sum(dim=1, keepdim=True)
 
         return output
 
     def forward_critic(self, x):
-        return self.value_net(x)
+        # Compute the switching coefficients
+        sigma = self.chooser(x)   # shape: [batch_size, num_linear_systems]
+
+        # Pass input through each quadratic value approximator
+        output = [quadratic(x) for quadratic in self.quadratic_systems]
+        output = torch.stack(output, dim=1)  # shape: [batch_size, num_linear_systems, 1]
+
+        # Weight the output by the switching coefficients
+        output = (sigma.unsqueeze(-1) * output).sum(dim=1)  # shape: [batch_size, 1]
+
+        return output
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
