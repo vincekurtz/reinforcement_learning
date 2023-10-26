@@ -19,7 +19,7 @@ from envs import HistoryWrapper
 import gymnasium as gym
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = True
+MLP_BASELINE = False
 
 # Try to make things deterministic
 SEED = 1
