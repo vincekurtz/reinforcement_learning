@@ -2,6 +2,24 @@ import torch
 from torch import nn
 from stable_baselines3.common.policies import ActorCriticPolicy
 
+class Quadratic(nn.Module):
+    """
+    A simple quadratic function
+
+        y = x'Ax + b'x + c
+
+    where A, b, and c are learnable parameters.
+    """
+    def __init__(self, input_size):
+        super().__init__()
+        self.A = nn.Parameter(torch.randn(input_size, input_size), requires_grad=True)
+        self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
+        self.c = nn.Parameter(torch.randn(1), requires_grad=True)
+
+    def forward(self, x):
+        y = (x @ self.A @ x.T).diag() + x @ self.b + self.c
+        return y.unsqueeze(-1)
+
 class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
@@ -23,33 +41,33 @@ class KoopmanMlpExtractor(nn.Module):
 
         # We define a switching surface between regimes with a neural net. This
         # network outputs scores in [0,1] that determine which linear layer is active
-        #self.chooser = nn.Sequential(
-        #    nn.Linear(input_size, num_linear_systems, bias=False), 
-        #    nn.Sigmoid())
+        self.chooser = nn.Sequential(
+            nn.Linear(input_size, num_linear_systems, bias=False), 
+            nn.Sigmoid())
         
         # Value function is a simple MLP
-        self.value_net = nn.Sequential(
-            nn.Linear(input_size, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
-            nn.Linear(256, self.latent_dim_vf))
+        self.value_net = Quadratic(input_size)
+        #self.value_net = nn.Sequential(
+        #    nn.Linear(input_size, 256), nn.ReLU(),
+        #    nn.Linear(256, 256), nn.ReLU(),
+        #    nn.Linear(256, self.latent_dim_vf))
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
     def forward_actor(self, x):
         # Compute the switching coefficients
-        #sigma = self.chooser(x)   # shape: [batch_size, num_linear_systems]
+        sigma = self.chooser(x)   # shape: [batch_size, num_linear_systems]
 
         # Pass input through each linear system
-        #output = [linear(x) for linear in self.linear_systems]
-        #output = torch.stack(output, dim=1)  # shape: [batch_size, num_linear_systems, output_size]
-        output = self.linear_systems[0](x)
+        output = [linear(x) for linear in self.linear_systems]
+        output = torch.stack(output, dim=1)  # shape: [batch_size, num_linear_systems, output_size]
 
         # Weight the outputs by the switching coefficients
-        #output = (sigma.unsqueeze(-1) * output).sum(dim=1)  # shape: [batch_size, output_size]
+        output = (sigma.unsqueeze(-1) * output).sum(dim=1)  # shape: [batch_size, output_size]
 
         # Normalize output so that weighting coefficients sum to 1
-        #output /= sigma.sum(dim=1, keepdim=True)
+        output /= sigma.sum(dim=1, keepdim=True)
 
         return output
 

@@ -9,25 +9,36 @@
 ##
 
 import sys
+import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 
 from policies import KoopmanPolicy
-from envs import EnvWithObservationHistory
+from envs import HistoryWrapper
+
+# Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
+MLP_BASELINE = False
 
 # Try to make things deterministic
-set_random_seed(1, using_cuda=True)
+SEED = 1
+set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
     """
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
-    return make_vec_env(EnvWithObservationHistory, n_envs=1,
-                        env_kwargs={"env_name": "Pendulum-v1", 
-                                    "history_length": 10,
-                                    "render_mode": render_mode})
+    env = gym.make("Pendulum-v1", render_mode=render_mode)
+    env.action_space.seed(SEED)
+    if not MLP_BASELINE:
+        env = HistoryWrapper(env, 1)
+    env = Monitor(env)
+    vec_env = DummyVecEnv([lambda: env])
+    vec_env.seed(SEED)
+    return vec_env
 
 def train():
     """
@@ -36,9 +47,14 @@ def train():
     vec_env = make_environment() 
     
     # set up the model (a.k.a. controller)
-    model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
-                tensorboard_log="/tmp/pendulum_tensorboard/",
-                verbose=1, policy_kwargs={"num_linear_systems": 2})
+    if MLP_BASELINE:
+        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=1e-3,
+                    tensorboard_log="/tmp/pendulum_tensorboard/",
+                    verbose=1)
+    else:
+        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
+                    tensorboard_log="/tmp/pendulum_tensorboard/",
+                    verbose=1, policy_kwargs={"num_linear_systems": 2})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())

@@ -71,7 +71,7 @@ def plot_switching_coefficient(model, history_length=10, surface_index=0):
     plt.colorbar(label="Switching coefficient")
 
 @torch.no_grad
-def plot_value_function(model, history_length=10):
+def plot_value_function(model, history_length=1):
     """
     Make a contour plot of the value function.
     """
@@ -112,8 +112,8 @@ if __name__=="__main__":
     plot_value_function(model)
     plot_pendulum_vector_field()
 
-    plt.figure()
-    plot_switching_coefficient(model, surface_index=0)
-    plot_pendulum_vector_field()
+    #plt.figure()
+    #plot_switching_coefficient(model, surface_index=0)
+    #plot_pendulum_vector_field()
 
     plt.show()
