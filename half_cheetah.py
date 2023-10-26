@@ -33,7 +33,7 @@ def make_environment(render_mode=None):
     env = gym.make("HalfCheetah-v4", render_mode=render_mode)
     env.action_space.seed(SEED)
     if not MLP_BASELINE:
-        env = HistoryWrapper(env, 1)
+        env = HistoryWrapper(env, 10)
     env = Monitor(env)
     vec_env = DummyVecEnv([lambda: env])
     vec_env.seed(SEED)
@@ -64,7 +64,7 @@ def train():
                     batch_size=64, clip_range=0.1, ent_coef=0.000401762,
                     gae_lambda=0.92, gamma=0.98, learning_rate=2.0633e-5, 
                     max_grad_norm=0.8, n_epochs=20, n_steps=512, vf_coef=0.58096,
-                    policy_kwargs={"num_linear_systems": 2,
+                    policy_kwargs={"num_linear_systems": 1,
                                    "log_std_init": -2,
                                    "ortho_init": False},
                     tensorboard_log="/tmp/half_cheetah_tensorboard/")
