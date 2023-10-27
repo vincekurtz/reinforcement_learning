@@ -52,7 +52,8 @@ def train(linear_system_type="parallel", num_blocks=1, timesteps=10_000):
     print(f"Training a policy with {num_params} parameters")
 
     # Do the learning
-    model.learn(total_timesteps=timesteps)
+    model.learn(total_timesteps=timesteps,
+                tb_log_name=f"{linear_system_type}_{num_blocks}_blocks")
 
     # Save the model
     model.save("trained_models/swimmer")

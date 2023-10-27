@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 def gather_data():
     architectures = ["parallel", "series", "hierarchy"]
-    num_blocks = [1, 2]
+    num_blocks = [1, 2, 3, 4, 5, 10]
 
     # Dictionary for storing the results. The keys are tuples of the form
     # (architecture, num_blocks) and the values are tuples of (average reward, std).
@@ -22,7 +22,7 @@ def gather_data():
     for arch in architectures:
         for nb in num_blocks:
             print("Training", arch, "with", nb, "blocks")
-            train(arch, nb)
+            train(arch, nb, 300_000)
             print("Evaluating", arch, "with", nb, "blocks")
             avg_reward, std_reward = evaluate()
             print("Average reward:", avg_reward, "+/-", std_reward)
@@ -67,7 +67,7 @@ def plot_results(results):
 
 
 if __name__=="__main__":
-    LOAD_SAVED_RESULTS = True
+    LOAD_SAVED_RESULTS = False
 
     if LOAD_SAVED_RESULTS:
         # Load the results from disk
@@ -83,4 +83,3 @@ if __name__=="__main__":
 
     # Make a plot of the results
     plot_results(results)
-
