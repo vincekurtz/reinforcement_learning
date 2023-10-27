@@ -192,7 +192,7 @@ class LinearMlpExtractor(nn.Module):
     is a linear map from observations to actions, and the value function is
     quadratic.
     """
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, linear_system_type, num_blocks):
         super().__init__()
 
         # The custom network must have these output dimensions as attributes
@@ -203,13 +203,16 @@ class LinearMlpExtractor(nn.Module):
         self.latent_dim_vf = 1
 
         # Policy
-        #self.policy_network = nn.Linear(input_size, output_size, bias=False)
-        #self.policy_network = ParallelLinear(input_size, output_size, num_blocks=1)
-        #self.policy_network = SeriesLinear(input_size, output_size, num_blocks=1)
-        self.policy_network = HierarchyLinear(input_size, output_size, num_blocks=1)
+        assert linear_system_type in ["parallel", "series", "hierarchy"]
+        assert num_blocks >= 1
+        if linear_system_type == "parallel":
+            self.policy_network = ParallelLinear(input_size, output_size, num_blocks)
+        elif linear_system_type == "series":
+            self.policy_network = SeriesLinear(input_size, output_size, num_blocks)
+        elif linear_system_type == "hierarchy":
+            self.policy_network = HierarchyLinear(input_size, output_size, num_blocks)
 
         # Value function
-        #self.value_network = Quadratic(input_size)
         self.value_network = nn.Sequential(
             nn.Linear(input_size, 64), nn.ReLU(),
             nn.Linear(64, 64), nn.ReLU(),
@@ -229,12 +232,21 @@ class LinearPolicy(ActorCriticPolicy):
     """
     A simple linear policy mapping observations to actions.
     """
-    def __init__(self, observation_space, action_space, lr_schedule, *args, 
-                 **kwargs):
+    def __init__(self, observation_space, action_space, lr_schedule, 
+                 linear_system_type, num_blocks, *args, **kwargs):
+        self.linear_system_type = linear_system_type
+        self.num_blocks = num_blocks
         super().__init__(observation_space, action_space, lr_schedule, *args,
                 **kwargs)
 
     def _build_mlp_extractor(self):
         self.mlp_extractor = LinearMlpExtractor(
-            self.features_dim, self.action_space.shape[0])
+            self.features_dim, self.action_space.shape[0], 
+            linear_system_type=self.linear_system_type,
+            num_blocks=self.num_blocks)
         
+    def save(self, path):
+        """
+        Save the policy to disk, including some extra custom params. 
+        """
+        super().save(path, include=["linear_system_type", "num_blocks"])

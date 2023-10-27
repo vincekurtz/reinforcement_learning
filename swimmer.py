@@ -7,36 +7,27 @@
 ##
 
 import sys
+import numpy as np
+
 from stable_baselines3 import PPO
 from stable_baselines3.common.utils import set_random_seed
-
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
-from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
-from policies import KoopmanPolicy, LinearPolicy
-from envs import HistoryWrapper
+from policies import LinearPolicy
 import gymnasium as gym
-
-# Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = False
 
 # Try to make things deterministic
 SEED = 1
 set_random_seed(SEED, using_cuda=True)
 
-def make_environment(render_mode=None, test_mode=False):
+def make_environment(render_mode=None):
     """
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
     env = gym.make("Swimmer-v4", render_mode=render_mode)
     env.action_space.seed(SEED)
-    if MLP_BASELINE:
-        env = TimeFeatureWrapper(env, test_mode=test_mode)
-    else:
-        pass
-        #env = HistoryWrapper(env, 20)
     env = Monitor(env)
     vec_env = DummyVecEnv([lambda: env])
     vec_env.seed(SEED)
@@ -44,29 +35,24 @@ def make_environment(render_mode=None, test_mode=False):
     vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=False)
     return vec_env
 
-def train():
+def train(linear_system_type="parallel", num_blocks=1, timesteps=10_000):
     """
     Train the model with PPO and save it to disk.
     """
     vec_env = make_environment() 
     
     # set up the model (a.k.a. controller)
-    if MLP_BASELINE:
-        model = PPO('MlpPolicy', vec_env, verbose=1, gamma=0.9999,
-                    tensorboard_log="/tmp/swimmer_tensorboard/")
-    else:
-        #model = PPO(KoopmanPolicy, vec_env, gamma=0.9999,
-        #            tensorboard_log="/tmp/swimmer_tensorboard/",
-        #            verbose=1, policy_kwargs={"num_linear_systems": 2})
-        model = PPO(LinearPolicy, vec_env, verbose=1, gamma=0.9999,
-                    tensorboard_log="/tmp/swimmer_tensorboard/")
+    model = PPO(LinearPolicy, vec_env, verbose=1, gamma=0.9999,
+                tensorboard_log="/tmp/swimmer_tensorboard/",
+                policy_kwargs={"linear_system_type": linear_system_type,
+                               "num_blocks": num_blocks})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
     print(f"Training a policy with {num_params} parameters")
 
     # Do the learning
-    model.learn(total_timesteps=10_000)
+    model.learn(total_timesteps=timesteps)
 
     # Save the model
     model.save("trained_models/swimmer")
@@ -84,13 +70,41 @@ def test():
         obs, _, _, _ = vec_env.step(action)
         vec_env.render("human")
 
+def evaluate(num_samples=10):
+    """
+    Evaluate the trained model by running it for a while and reporting the
+    average reward.
+    """
+    vec_env = make_environment()
+    model = PPO.load("trained_models/swimmer")
+
+    rewards = []
+    for i in range(num_samples):
+        obs = vec_env.reset()
+        done = False
+        total_reward = 0
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _ = vec_env.step(action)
+            total_reward += reward
+            if done:
+                rewards.append(total_reward)
+
+    avg_reward = np.mean(rewards)
+    std_reward = np.std(rewards)
+    return avg_reward, std_reward
+
 if __name__=="__main__":
-    # Must run with --train or --test
-    if len(sys.argv) != 2 or sys.argv[1] not in ["--train", "--test"]:
-        print("Usage: python swimmer.py [--train, --test]")
+    # Must run with --train, --test, or --evaluate
+    if len(sys.argv) != 2 or sys.argv[1] not in ["--train", "--test", "--eval"]:
+        print("Usage: python swimmer.py [--train, --test, --eval]")
         sys.exit(1)
 
     if sys.argv[1] == "--train":
         train()
     elif sys.argv[1] == "--test":
         test()
+    elif sys.argv[1] == "--eval":
+        num_samples=10
+        avg_reward, std_reward = evaluate(num_samples=num_samples)
+        print(f"Reward over {num_samples} runs: {avg_reward} +/- {std_reward}")
