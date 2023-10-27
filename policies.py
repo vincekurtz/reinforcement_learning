@@ -110,3 +110,17 @@ class KoopmanPolicy(ActorCriticPolicy):
         Save the policy to disk, including some extra custom params. 
         """
         super().save(path, include=["num_linear_systems"])
+
+class LinearPolicy(ActorCriticPolicy):
+    """
+    A simple linear policy mapping observations to actions. The value function is a generic MLP.
+    """
+    def __init__(self, observation_space, action_space, lr_schedule, *args, 
+                 **kwargs):
+        super().__init__(observation_space, action_space, lr_schedule, *args,
+                **kwargs)
+
+    def _build_mlp_extractor(self):
+        self.mlp_extractor = KoopmanMlpExtractor(
+            self.features_dim, self.action_space.shape[0], 
+            self.num_linear_systems)

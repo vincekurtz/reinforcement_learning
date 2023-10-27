@@ -9,25 +9,31 @@
 ##
 
 import sys
+import gymnasium as gym
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 
 from policies import KoopmanPolicy
-from envs import EnvWithObservationHistory
+from envs import HistoryWrapper
 
 # Try to make things deterministic
-set_random_seed(1, using_cuda=True)
+SEED = 1
+set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
     """
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
-    return make_vec_env(EnvWithObservationHistory, n_envs=1,
-                        env_kwargs={"env_name": "InvertedPendulum-v4", 
-                                    "history_length": 1,
-                                    "render_mode": render_mode})
+    env = gym.make("InvertedPendulum-v4", render_mode=render_mode)
+    env.action_space.seed(SEED)
+    #env = HistoryWrapper(env, 1)
+    env = Monitor(env)
+    vec_env = DummyVecEnv([lambda: env])
+    vec_env.seed(SEED)
+    return vec_env
 
 def train():
     """
