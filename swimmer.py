@@ -66,7 +66,7 @@ def train():
     print(f"Training a policy with {num_params} parameters")
 
     # Do the learning
-    model.learn(total_timesteps=1_000_000)
+    model.learn(total_timesteps=10_000)
 
     # Save the model
     model.save("trained_models/swimmer")

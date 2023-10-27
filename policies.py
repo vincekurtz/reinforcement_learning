@@ -113,17 +113,16 @@ class KoopmanPolicy(ActorCriticPolicy):
 
 class ParallelLinear(nn.Module):
     """
-    Compute the weighted sum of multiple linear layers in parallel, i.e.,
+    Compute the weighted sum of multiple linear blocks in parallel, i.e.,
 
         y = K1*x + K2*x + ... + Kn*x
 
     """
-    def __init__(self, input_size, output_size, num_layers=2):
+    def __init__(self, input_size, output_size, num_blocks=2):
         super().__init__()
-        self.num_layers = num_layers
         self.layers = nn.ModuleList([
             nn.Linear(input_size, output_size, bias=False) 
-            for _ in range(num_layers)])
+            for _ in range(num_blocks)])
         
     def forward(self, x):
         # Sum the output of each linear layer
@@ -139,7 +138,7 @@ class SeriesLinear(nn.Module):
        y = Kn * ... * K2 * K1 * x
     
     """
-    def __init__(self, input_size, output_size, hidden_sizes = []):
+    def __init__(self, input_size, output_size, num_blocks=2):
         """
         Args:
             input_size: The dimension of the input
@@ -148,28 +147,29 @@ class SeriesLinear(nn.Module):
         """
         super().__init__()
 
-        self.output_sizes = hidden_sizes + [output_size]
+        output_sizes = [output_size]*num_blocks
         self.layers = nn.ModuleList()
-        self.layers.append(nn.Linear(input_size, self.output_sizes[0], bias=False))
-        for i in range(1, len(self.output_sizes)):
+
+        self.layers.append(nn.Linear(input_size, output_sizes[0], bias=False))
+        for i in range(1, len(output_sizes)):
             self.layers.append(
-                nn.Linear(self.output_sizes[i-1], self.output_sizes[i], bias=False))
+                nn.Linear(output_sizes[i-1], output_sizes[i], bias=False))
             
     def forward(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
     
-class HeirarchyLinear(nn.Module):
+class HierarchyLinear(nn.Module):
     """
-    Compute the output of multiple linear layers connected in a heirarchical fashion, where
+    Compute the output of multiple linear layers connected in a hierarchical fashion, where
     the output of the ith layer is fed as an input to the (i-1)th layer. 
     """
-    def __init__(self, input_size, output_size, hidden_sizes=[]):
+    def __init__(self, input_size, output_size, num_blocks=2):
         super().__init__()
 
+        output_sizes = num_blocks*[output_size]
         self.layers = nn.ModuleList()
-        output_sizes = [output_size] + hidden_sizes
 
         for i in range(len(output_sizes)-1):
             # Most layers have an input from the previous layer and an input from the
@@ -204,11 +204,9 @@ class LinearMlpExtractor(nn.Module):
 
         # Policy
         #self.policy_network = nn.Linear(input_size, output_size, bias=False)
-        #self.policy_network = ParallelLinear(input_size, output_size, num_layers=10)
-        #self.policy_network = SeriesLinear(input_size, output_size, 
-        #                                   hidden_sizes=[4]*10)
-        self.policy_network = HeirarchyLinear(input_size, output_size, 
-                                              hidden_sizes=[3]*1)
+        #self.policy_network = ParallelLinear(input_size, output_size, num_blocks=1)
+        #self.policy_network = SeriesLinear(input_size, output_size, num_blocks=1)
+        self.policy_network = HierarchyLinear(input_size, output_size, num_blocks=1)
 
         # Value function
         #self.value_network = Quadratic(input_size)
