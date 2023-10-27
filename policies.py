@@ -203,12 +203,12 @@ class LinearMlpExtractor(nn.Module):
         self.latent_dim_vf = 1
 
         # Policy
-        #self.policy_network = nn.Linear(input_size, output_size, bias=False)
+        self.policy_network = nn.Linear(input_size, output_size, bias=False)
         #self.policy_network = ParallelLinear(input_size, output_size, num_layers=10)
         #self.policy_network = SeriesLinear(input_size, output_size, 
         #                                   hidden_sizes=[4]*10)
-        self.policy_network = HeirarchyLinear(input_size, output_size, 
-                                              hidden_sizes=[4]*5)
+        #self.policy_network = HeirarchyLinear(input_size, output_size, 
+        #                                      hidden_sizes=[4]*5)
 
         # Value function
         #self.value_network = Quadratic(input_size)
