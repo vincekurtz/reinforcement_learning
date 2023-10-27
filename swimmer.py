@@ -14,7 +14,7 @@ from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
-from policies import KoopmanPolicy
+from policies import KoopmanPolicy, LinearPolicy
 from envs import HistoryWrapper
 import gymnasium as gym
 
@@ -35,7 +35,8 @@ def make_environment(render_mode=None, test_mode=False):
     if MLP_BASELINE:
         env = TimeFeatureWrapper(env, test_mode=test_mode)
     else:
-        env = HistoryWrapper(env, 20)
+        pass
+        #env = HistoryWrapper(env, 20)
     env = Monitor(env)
     vec_env = DummyVecEnv([lambda: env])
     vec_env.seed(SEED)
@@ -54,9 +55,11 @@ def train():
         model = PPO('MlpPolicy', vec_env, verbose=1, gamma=0.9999,
                     tensorboard_log="/tmp/swimmer_tensorboard/")
     else:
-        model = PPO(KoopmanPolicy, vec_env, gamma=0.9999,
-                    tensorboard_log="/tmp/swimmer_tensorboard/",
-                    verbose=1, policy_kwargs={"num_linear_systems": 2})
+        #model = PPO(KoopmanPolicy, vec_env, gamma=0.9999,
+        #            tensorboard_log="/tmp/swimmer_tensorboard/",
+        #            verbose=1, policy_kwargs={"num_linear_systems": 2})
+        model = PPO(LinearPolicy, vec_env, verbose=1, gamma=0.9999,
+                    tensorboard_log="/tmp/swimmer_tensorboard/")
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())

@@ -111,9 +111,125 @@ class KoopmanPolicy(ActorCriticPolicy):
         """
         super().save(path, include=["num_linear_systems"])
 
+class ParallelLinear(nn.Module):
+    """
+    Compute the weighted sum of multiple linear layers in parallel, i.e.,
+
+        y = K1*x + K2*x + ... + Kn*x
+
+    """
+    def __init__(self, input_size, output_size, num_layers=2):
+        super().__init__()
+        self.num_layers = num_layers
+        self.layers = nn.ModuleList([
+            nn.Linear(input_size, output_size, bias=False) 
+            for _ in range(num_layers)])
+        
+    def forward(self, x):
+        # Sum the output of each linear layer
+        output = [layer(x) for layer in self.layers]
+        output = torch.stack(output, dim=1)
+        output = output.sum(dim=1)
+        return output
+    
+class SeriesLinear(nn.Module):
+    """
+    Compute the output of multiple linear layers connected in series, i.e.,
+        
+       y = Kn * ... * K2 * K1 * x
+    
+    """
+    def __init__(self, input_size, output_size, hidden_sizes = []):
+        """
+        Args:
+            input_size: The dimension of the input
+            output_size: The dimension of the output
+            hidden_sizes: A list of hidden layer sizes
+        """
+        super().__init__()
+
+        self.output_sizes = hidden_sizes + [output_size]
+        self.layers = nn.ModuleList()
+        self.layers.append(nn.Linear(input_size, self.output_sizes[0], bias=False))
+        for i in range(1, len(self.output_sizes)):
+            self.layers.append(
+                nn.Linear(self.output_sizes[i-1], self.output_sizes[i], bias=False))
+            
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+    
+class HeirarchyLinear(nn.Module):
+    """
+    Compute the output of multiple linear layers connected in a heirarchical fashion, where
+    the output of the ith layer is fed as an input to the (i-1)th layer. 
+    """
+    def __init__(self, input_size, output_size, hidden_sizes=[]):
+        super().__init__()
+
+        self.layers = nn.ModuleList()
+        output_sizes = [output_size] + hidden_sizes
+
+        for i in range(len(output_sizes)-1):
+            # Most layers have an input from the previous layer and an input from the
+            # the global input
+            self.layers.append(
+                nn.Linear(input_size + output_sizes[i+1], output_sizes[i], bias=False))
+        # The final layer only has an input from the global input
+        self.layers.append(
+            nn.Linear(input_size, output_sizes[-1], bias=False))
+        
+    def forward(self, x):
+        y = self.layers[-1](x)
+        for layer in reversed(self.layers[:-1]):
+            y = layer(torch.cat((x, y), dim=1))
+        return y
+
+class LinearMlpExtractor(nn.Module):
+    """
+    A neural net containing both the policy and the value function. The policy
+    is a linear map from observations to actions, and the value function is
+    quadratic.
+    """
+    def __init__(self, input_size, output_size):
+        super().__init__()
+
+        # The custom network must have these output dimensions as attributes
+        # with these names. The PPO implementation adds an additional linear
+        # layer that maps from 'latent_dim_pi' to actions and from
+        # 'latent_dim_vf' to values
+        self.latent_dim_pi = output_size
+        self.latent_dim_vf = 1
+
+        # Policy
+        #self.policy_network = nn.Linear(input_size, output_size, bias=False)
+        #self.policy_network = ParallelLinear(input_size, output_size, num_layers=10)
+        #self.policy_network = SeriesLinear(input_size, output_size, 
+        #                                   hidden_sizes=[4]*10)
+        self.policy_network = HeirarchyLinear(input_size, output_size, 
+                                              hidden_sizes=[4]*5)
+
+        # Value function
+        #self.value_network = Quadratic(input_size)
+        self.value_network = nn.Sequential(
+            nn.Linear(input_size, 64), nn.ReLU(),
+            nn.Linear(64, 64), nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x):
+        return self.forward_actor(x), self.forward_critic(x)
+
+    def forward_actor(self, x):
+        return self.policy_network(x)
+
+    def forward_critic(self, x):
+        return self.value_network(x)
+
 class LinearPolicy(ActorCriticPolicy):
     """
-    A simple linear policy mapping observations to actions. The value function is a generic MLP.
+    A simple linear policy mapping observations to actions.
     """
     def __init__(self, observation_space, action_space, lr_schedule, *args, 
                  **kwargs):
@@ -121,6 +237,6 @@ class LinearPolicy(ActorCriticPolicy):
                 **kwargs)
 
     def _build_mlp_extractor(self):
-        self.mlp_extractor = KoopmanMlpExtractor(
-            self.features_dim, self.action_space.shape[0], 
-            self.num_linear_systems)
+        self.mlp_extractor = LinearMlpExtractor(
+            self.features_dim, self.action_space.shape[0])
+        
