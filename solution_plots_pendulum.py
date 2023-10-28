@@ -112,8 +112,8 @@ if __name__=="__main__":
     plot_value_function(model)
     plot_pendulum_vector_field()
 
-    plt.figure()
-    plot_switching_coefficient(model, surface_index=2)
-    plot_pendulum_vector_field()
+    #plt.figure()
+    #plot_switching_coefficient(model, surface_index=2)
+    #plot_pendulum_vector_field()
 
     plt.show()
