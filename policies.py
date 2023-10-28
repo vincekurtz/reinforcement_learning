@@ -36,9 +36,8 @@ class KoopmanMlpExtractor(nn.Module):
 
         lifting_dim = 64
         self.lifting_function = nn.Sequential(
-                nn.Linear(input_size, 64), nn.ReLU(),
-                nn.Linear(64, 64), nn.ReLU(),
-                nn.Linear(64, lifting_dim))
+                nn.Linear(input_size, 64), nn.Tanh(),
+                nn.Linear(64, lifting_dim), nn.Tanh())
 
         self.linear_feedback = nn.Linear(lifting_dim, output_size)
         
