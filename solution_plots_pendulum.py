@@ -33,6 +33,8 @@ def plot_pendulum_vector_field(n=25):
 
     plt.xlabel(r"$\theta$")
     plt.ylabel(r"$\dot{\theta}$")
+    plt.xlim([-np.pi, 2*np.pi])
+    plt.ylim([-8, 8])
 
 @torch.no_grad
 def plot_switching_coefficient(model, history_length=1, surface_index=0):
