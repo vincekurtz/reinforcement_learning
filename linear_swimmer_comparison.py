@@ -12,8 +12,8 @@ import pickle
 import matplotlib.pyplot as plt
 
 def gather_data():
-    architectures = ["parallel", "series", "hierarchy"]
-    num_blocks = [1, 2, 3, 4, 5, 10]
+    architectures = ["hierarchy", "parallel", "series"]
+    num_blocks = [8, 16, 32, 64]
 
     # Dictionary for storing the results. The keys are tuples of the form
     # (architecture, num_blocks) and the values are tuples of (average reward, std).
