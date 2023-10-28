@@ -62,19 +62,13 @@ Z = phi_X.reshape((num_traj*steps_per_traj, -1))
 Z_now = Z[0:-1,:]
 Z_next = Z[1:,:]
 A, residuals, rank, s = np.linalg.lstsq(Z_now, Z_next, rcond=1)
-print("residual: ", np.linalg.norm(residuals))
+print("dynamics residual: ", np.linalg.norm(residuals))
 
 # Compute a linear least-squares fit mapping the lifted state to observations,
-#  y_t = C z_t + d
-#Y = X.reshape((num_traj*steps_per_traj, -1))
-#Z = np.concatenate((Z, np.ones((Z.shape[0],1))), axis=1)
-#Y = np.concatenate((Y, np.ones((Y.shape[0],1))), axis=1)
-#Cd, residuals, rank, s = np.linalg.lstsq(Y, Z, rcond=1)
-#C = Cd[0:-1,0:-1]
-#d = Cd[-1,0:-1]
-#print("residual: ", np.linalg.norm(residuals))
-#print(C.shape)
-#print(d)
+#  y_t = z_t C
+Y = X.reshape((num_traj*steps_per_traj, -1))
+C, residuals, rank, s = np.linalg.lstsq(Z, Y, rcond=1)
+print("output residual: ", np.linalg.norm(residuals))
 
 # Plot the eigenvalues of A
 print("Plotting Eigenvalues")
@@ -100,19 +94,19 @@ y = X[0,:,:]  # The actual observation
 y_pred = np.zeros_like(y)  # The predicted observation
 
 z_pred[0,:] = z[0,:]  # Set the initial condition
-#y_pred[0,:] = C@z_pred[0,:]
+y_pred[0,:] = z_pred[0,:] @ C
 for step in range(1,steps_per_traj):
     z_pred[step,:] = z_pred[step-1,:] @ A
-#    y_pred[step,:] = C @ z_pred[step,:] + d
+    y_pred[step,:] = z_pred[step,:] @ C
 
-#for i in range(3):
-#    plt.subplot(3,1,i+1)
-#    plt.plot(y[:,i], label="actual")
-#    plt.plot(y_pred[:,i], label="predicted")
-for i in range(25):
-    plt.subplot(5,5,i+1)
-    plt.plot(z[:,i], label="actual")
-    plt.plot(z_pred[:,i], label="predicted")
+for i in range(3):
+    plt.subplot(3,1,i+1)
+    plt.plot(y[:,i], label="actual")
+    plt.plot(y_pred[:,i], label="predicted")
+#for i in range(25):
+#    plt.subplot(5,5,i+1)
+#    plt.plot(z[:,i], label="actual")
+#    plt.plot(z_pred[:,i], label="predicted")
 
 plt.legend()
 plt.show()
