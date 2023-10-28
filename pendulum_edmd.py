@@ -36,6 +36,8 @@ def gather_edmd_data(model, env, num_traj=10, steps_per_traj=100):
         Z: A numpy array of shape (num_traj, steps_per_traj, lifting_size)
             containing the lifted states from each trajectory.
     """
+    print("Gathering Data")
+
     # Allocate observation array
     Y = np.zeros((num_traj, steps_per_traj, 3))
     for traj in range(num_traj):
@@ -53,8 +55,8 @@ def gather_edmd_data(model, env, num_traj=10, steps_per_traj=100):
     # Compute phi(x) for each observation in the dataset
     phi = model.policy.mlp_extractor.lifting_function
     with torch.no_grad():
-        Y_torch = torch.from_numpy(X).float().to(model.device)
-        Z = phi(X_torch).cpu().numpy()
+        Y_torch = torch.from_numpy(Y).float().to(model.device)
+        Z = phi(Y_torch).cpu().numpy()
 
     return Y, Z
 
@@ -77,6 +79,13 @@ def perform_edmd(Y, Z):
         A: the dynamics matrix
         C: the projection matrix
     """
+    print("Performing EDMD")
+
+    assert Y.shape[0] == Z.shape[0]
+    assert Y.shape[1] == Z.shape[1]
+    num_traj = Y.shape[0]
+    steps_per_traj = Y.shape[1]
+
     # Fit the lifted dynamics as
     #  z_{t+1} = z_t A  (note the awkward order to fit with numpy least squares)
     Z = Z.reshape((num_traj*steps_per_traj, -1))
@@ -93,7 +102,6 @@ def perform_edmd(Y, Z):
 
     return A, C
 
-# Plot some vector fields 
 def plot_controlled_pendulum_vector_field(env, model, n=25):
     """
     Make a vector field plot of the controlled pendulum dynamics.
@@ -125,6 +133,205 @@ def plot_controlled_pendulum_vector_field(env, model, n=25):
     plt.xlim([-np.pi, 2*np.pi])
     plt.ylim([-8, 8])
 
+def plot_eigenvalues(A):
+    """
+    Plot the eigenvalues of the discrete-time state update matrix A, and overlay
+    the unit circle.
+    """
+    plt.figure()
+
+    eigvals = np.linalg.eigvals(A)
+    plt.scatter(eigvals.real, eigvals.imag)
+
+    theta = np.linspace(0, 2*np.pi, 100)  # Unit circle
+    plt.plot(np.cos(theta), np.sin(theta), color='grey', linestyle='--')
+
+    plt.xlabel("Real Part")
+    plt.ylabel("Imaginary Part")
+    plt.title("Eigenvalues of A")
+
+def compare_lifted_state_trajectories(env, model, A, num_steps=100):
+    """
+    Compare the actual lifted state z_t = phi(y_t) along a trajectory to the
+    predicted lifted state from the learned Koopman model.
+
+    Args:
+        env: A gym environment for the pendulum
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        A: The learned Koopman matrix
+        num_steps: The number of steps to simulate
+    """
+    plt.figure()
+
+    # Get the lifting function
+    phi = model.policy.mlp_extractor.lifting_function
+
+    # Simulate a trajectory closed-loop
+    obs, _ = env.reset()
+    Y = np.zeros((num_steps, 3))
+    for step in range(num_steps):
+        # Record the observation
+        Y[step,:] = obs
+
+        # Choose an action according to the learned policy
+        action, _ = model.predict(obs)
+
+        # Step the environment
+        obs, _, _, _, _ = env.step(action)
+
+    # Compute the lifted state along the trajectory
+    with torch.no_grad():
+        Y_torch = torch.from_numpy(Y).float().to(model.device)
+        Z = phi(Y_torch).cpu().numpy()
+
+    # Simulate the linear Koopman model
+    Z_pred = np.zeros_like(Z)
+    Z_pred[0,:] = Z[0,:]
+    for step in range(1,num_steps):
+        Z_pred[step,:] = Z_pred[step-1,:] @ A
+
+    # Plot the first 32 dimensions of the lifted state
+    for i in range(32):
+        plt.subplot(4,8,i+1)
+        plt.plot(Z[:,i], label="actual")
+        plt.plot(Z_pred[:,i], label="predicted")
+    plt.legend()
+
+def compare_trajectories(env, model, A, C, num_steps=100):
+    """
+    Compare a trajectory we get from simulating the controlled system to a
+    trajectories we get from the learned Koopman model of the controlled system. 
+
+    Args:
+        env: A gym environment for the pendulum
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        A: The learned Koopman matrix
+        C: The learned mapping from lifted state to observation
+        num_steps: The number of steps to simulate
+    """
+    plt.figure()
+
+    # Get the lifting function
+    phi = model.policy.mlp_extractor.lifting_function
+
+    # Simulate a trajectory closed-loop
+    obs, _ = env.reset()
+    Y = np.zeros((num_steps, 3))
+    for step in range(num_steps):
+        Y[step,:] = obs
+        action, _ = model.predict(obs)
+        obs, _, _, _, _ = env.step(action)
+
+    # Compute the lifted state at the first timestep
+    with torch.no_grad():
+        y0_torch = torch.from_numpy(Y[0,:]).float().to(model.device)
+        z0 = phi(y0_torch).cpu().numpy()
+
+    # Simulate the linear Koopman model
+    nz = z0.shape[0]
+    Z = np.zeros((num_steps, nz))
+    Z[0,:] = z0
+    Y_pred = np.zeros((num_steps, 3))
+    for step in range(0,num_steps-1):
+        Y_pred[step,:] = Z[step,:] @ C
+        Z[step+1,:] = Z[step,:] @ A
+    Y_pred[-1,:] = Z[-1,:] @ C
+
+    # Plot the observations
+    plt.subplot(3,1,1)
+    plt.plot(Y[:,0], label="actual")
+    plt.plot(Y_pred[:,0], label="predicted")
+    plt.ylabel("cos(theta)")
+    plt.legend()
+
+    plt.subplot(3,1,2)
+    plt.plot(Y[:,1], label="actual")
+    plt.plot(Y_pred[:,1], label="predicted")
+    plt.ylabel("sin(theta)")
+
+    plt.subplot(3,1,3)
+    plt.plot(Y[:,2], label="actual")
+    plt.plot(Y_pred[:,2], label="predicted")
+    plt.ylabel("theta_dot")
+
+def plot_koopman_vector_field(model, A, C, n=10):
+    """
+    Plot the vector field of the learned Koopman model of the controlled
+    pendulum dynamics.
+
+    Args:
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        A: The learned Koopman matrix
+        C: The learned mapping from lifted state to observation
+        n: The number of points to plot in each dimension
+    """
+    # Get the lifting function
+    phi = model.policy.mlp_extractor.lifting_function
+
+    # Sample an initial state
+    theta = np.random.uniform(-np.pi, 2*np.pi)
+    theta_dot = np.random.uniform(-8, 8)
+    y0 = np.array([np.cos(theta), np.sin(theta), theta_dot])
+
+    # Compute the lifted state at the first timestep
+    with torch.no_grad():
+        y0_torch = torch.from_numpy(y0).float().to(model.device)
+        z0 = phi(y0_torch).cpu().numpy()
+
+    # Simulate the linear Koopman model
+    num_steps = 100
+    nz = z0.shape[0]
+    Z = np.zeros((num_steps, nz))
+    Z[0,:] = z0
+    Y_pred = np.zeros((num_steps, 3))
+    for step in range(0,num_steps-1):
+        Y_pred[step,:] = Z[step,:] @ C
+        Z[step+1,:] = Z[step,:] @ A
+    Y_pred[-1,:] = Z[-1,:] @ C
+
+    old_theta = np.arctan2(Y_pred[0,1], Y_pred[0,0])
+    old_theta_dot = Y_pred[0,2]
+    for t in range(num_steps):
+        new_theta = np.arctan2(Y_pred[t,1], Y_pred[t,0])
+        new_theta_dot = Y_pred[t,2]
+
+        plt.arrow(old_theta, old_theta_dot, new_theta-old_theta, new_theta_dot-old_theta_dot,
+                head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
+
+        old_theta = new_theta
+        old_theta_dot = new_theta_dot
+
+        #cos_theta = Y_pred[t,0]
+        #sin_theta = Y_pred[t,1]
+        #theta_dot = Y_pred[t,2]
+        #theta = np.arctan2(sin_theta, cos_theta)
+        #if t == num_steps-1:
+        #    print("cos(theta): ", cos_theta)
+        #    print("sin(theta): ", sin_theta)
+        #    print("theta: ", theta)
+        #    print("theta_dot: ", theta_dot)
+
+        #plt.scatter(theta, theta_dot, color='blue', alpha=0.5)
+
+    plt.xlabel(r"$\theta$")
+    plt.ylabel(r"$\dot{\theta}$")
+    plt.xlim([-np.pi, 2*np.pi])
+    plt.ylim([-8, 8])
+
+    # DEBUG
+    plt.figure()
+    plt.subplot(3,1,1)
+    plt.plot(Y_pred[:,0], label="predicted")
+    plt.ylabel("cos(theta)")
+
+    plt.subplot(3,1,2)
+    plt.plot(Y_pred[:,1], label="predicted")
+    plt.ylabel("sin(theta)")
+
+    plt.subplot(3,1,3)
+    plt.plot(Y_pred[:,2], label="predicted")
+    plt.ylabel("theta_dot")
+
 if __name__=="__main__":
     # Try (vainly) to make things deterministic
     SEED = 1
@@ -139,6 +346,21 @@ if __name__=="__main__":
 
     # Load the learned model
     model = PPO.load("trained_models/pendulum")
+
+    # Gather data for EDMD
+    Y, Z = gather_edmd_data(model, env, num_traj=10, steps_per_traj=100)
+
+    # Fit an EDMD model
+    A, C = perform_edmd(Y, Z)
+
+    ## Compare predictions in the lifted space
+    #compare_lifted_state_trajectories(env, model, A, num_steps=100)
+
+    ## Compare predictions in the observation space
+    #compare_trajectories(env, model, A, C, num_steps=100)
+
+    ## Plot the eigenvalues of the learned Koopman operator approximation
+    #plot_eigenvalues(A)
         
     # Make vector field plots
     plt.subplot(2,2,1)
@@ -155,67 +377,6 @@ if __name__=="__main__":
 
     plt.subplot(2,2,4)
     plt.title("Koopman Model of Controlled Vector Field")
+    plot_koopman_vector_field(model, A, C)
 
     plt.show()
-
-## Plot the eigenvalues of A
-#print("Plotting Eigenvalues")
-#eigvals = np.linalg.eigvals(A)
-#plt.figure()
-#plt.scatter(eigvals.real, eigvals.imag)
-#
-#theta = np.linspace(0, 2*np.pi, 100)  # Unit circle
-#plt.plot(np.cos(theta), np.sin(theta), color='grey', linestyle='--')
-#
-#plt.xlabel("Real Part")
-#plt.ylabel("Imaginary Part")
-#plt.title("Eigenvalues of A")
-
-## For comparison, plot the lifted state for a single trajectory
-#print("Making Plots")
-#plt.figure()
-#
-#z = phi_X[0,:,:]  # The actual lifted state
-#z_pred = np.zeros_like(z)  # The predicted lifted state
-#
-#y = X[0,:,:]  # The actual observation
-#y_pred = np.zeros_like(y)  # The predicted observation
-#
-#z_pred[0,:] = z[0,:]  # Set the initial condition
-#y_pred[0,:] = z_pred[0,:] @ C
-#for step in range(1,steps_per_traj):
-#    z_pred[step,:] = z_pred[step-1,:] @ A
-#    y_pred[step,:] = z_pred[step,:] @ C
-#
-#for i in range(3):
-#    plt.subplot(3,1,i+1)
-#    plt.plot(y[:,i], label="actual")
-#    plt.plot(y_pred[:,i], label="predicted")
-##for i in range(25):
-##    plt.subplot(5,5,i+1)
-##    plt.plot(z[:,i], label="actual")
-##    plt.plot(z_pred[:,i], label="predicted")
-#
-#plt.legend()
-#plt.show()
-
-## Plot observations over time
-#plt.figure()
-#
-#plt.subplot(3,1,1)
-#for traj in range(num_traj):
-#    plt.plot(X[traj,:,0])
-#plt.ylabel("cos(theta)")
-#
-#plt.subplot(3,1,2)
-#for traj in range(num_traj):
-#    plt.plot(X[traj,:,1])
-#plt.ylabel("sin(theta)")
-#
-#plt.subplot(3,1,3)
-#for traj in range(num_traj):
-#    plt.plot(X[traj,:,2])
-#plt.ylabel("theta_dot")
-#
-#plt.xlabel("Timestep")
-#plt.show()
