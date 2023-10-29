@@ -17,7 +17,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-def gather_edmd_data(model, env, num_traj=10, steps_per_traj=100):
+def gather_edmd_data(model, env, sample_length=10, num_samples=100):
     """
     Gather data for fitting an EDMD model,
 
@@ -27,40 +27,55 @@ def gather_edmd_data(model, env, num_traj=10, steps_per_traj=100):
     Args:
         model: A stable-baselines3 PPO model that includes the lifting function
         env: A gym environment for the pendulum
-        num_traj: The number of trajectories to simulate
-        steps_per_traj: The number of steps to run each trajectory for.
+        sample_length: The number of steps to simulate for each sample
+        num_samples: The number of samples to gather
 
     Return:
-        Y: A numpy array of shape (num_traj, steps_per_traj, 3) containing the
-            observations from each trajectory.
-        Z: A numpy array of shape (num_traj, steps_per_traj, lifting_size)
-            containing the lifted states from each trajectory.
+        Z: A numpy array of shape (num_samples*sample_length, lifting_size)
+         containing the starting lifted state for each sample.
+        Z_next: A numpy array of shape (num_samples*sample_length, lifting_size)
+         containing the lifted state at the next timestep for each sample.
+        Y: A numpy array of shape (num_samples*sample_length, 3) containing the
+         starting observation for each sample.
     """
     print("Gathering Data")
+    env.reset()
 
-    # Allocate observation array
-    Y = np.zeros((num_traj, steps_per_traj, 3))
-    for traj in range(num_traj):
-        # Reset to a new initial state
-        obs, _ = env.reset()
+    # Allocate observation arrays
+    Y = np.zeros((num_samples*sample_length, 3))
+    Y_next = np.zeros((num_samples*sample_length, 3))
 
-        for step in range(steps_per_traj):
-            # Store the current observation [cos(theta), sin(theta), theta_dot]
-            Y[traj, step, :] = obs
+    # Compute the observations by simulating the system for a single step
+    i = 0
+    for _ in range(num_samples):
+        # Sample an initial state
+        theta = np.random.uniform(-np.pi, np.pi)
+        theta_dot = np.random.uniform(-8, 8)
+        env.unwrapped.state = np.array([theta, theta_dot])
+
+        for _ in range(sample_length):
+            # Record the initial observation
+            Y[i,:] = env.unwrapped._get_obs()
 
             # Step the environment
-            action, _ = model.predict(obs)
+            action, _ = model.predict(Y[i,:])
             obs, _, _, _, _ = env.step(action)
 
-    # Compute phi(x) for each observation in the dataset
+            # Record the next observation
+            Y_next[i,:] = obs
+            i += 1
+
+    # Compute the lifting Z = phi(Y)
     phi = model.policy.mlp_extractor.lifting_function
     with torch.no_grad():
         Y_torch = torch.from_numpy(Y).float().to(model.device)
+        Y_next_torch = torch.from_numpy(Y_next).float().to(model.device)
         Z = phi(Y_torch).cpu().numpy()
+        Z_next = phi(Y_next_torch).cpu().numpy()
 
-    return Y, Z
+    return Z, Z_next, Y
 
-def perform_edmd(Y, Z):
+def perform_edmd(Z, Z_next, Y):
     """
     Fit an EDMD model of the form
 
@@ -70,10 +85,12 @@ def perform_edmd(Y, Z):
     to the data. 
 
     Args:
-        Y: A numpy array of shape (num_traj, steps_per_traj, 3) containing the
-            observations from each trajectory.
-        Z: A numpy array of shape (num_traj, steps_per_traj, lifting_size)
-            containing the lifted states from each trajectory.
+        Y: A numpy array of shape (num_samples, 3) containing the initial
+            observations
+        Z: A numpy array of shape (num_samples, lifting_size) containing the
+            starting lifted state for each sample.
+        Z_next: A numpy array of shape (num_samples, lifting_size) containing
+            the lifted state at the next timestep for each sample.
 
     Returns:
         A: the dynamics matrix
@@ -81,22 +98,13 @@ def perform_edmd(Y, Z):
     """
     print("Performing EDMD")
 
-    assert Y.shape[0] == Z.shape[0]
-    assert Y.shape[1] == Z.shape[1]
-    num_traj = Y.shape[0]
-    steps_per_traj = Y.shape[1]
-
     # Fit the lifted dynamics as
     #  z_{t+1} = z_t A  (note the awkward order to fit with numpy least squares)
-    Z = Z.reshape((num_traj*steps_per_traj, -1))
-    Z_now = Z[0:-1,:]
-    Z_next = Z[1:,:]
-    A, residuals, rank, s = np.linalg.lstsq(Z_now, Z_next, rcond=1)
+    A, residuals, rank, s = np.linalg.lstsq(Z, Z_next, rcond=1)
     print("dynamics residual: ", np.linalg.norm(residuals))
 
     # Compute a linear least-squares fit mapping the lifted state to observations,
     #  y_t = z_t C
-    Y = Y.reshape((num_traj*steps_per_traj, -1))
     C, residuals, rank, s = np.linalg.lstsq(Z, Y, rcond=1)
     print("output residual: ", np.linalg.norm(residuals))
 
@@ -333,21 +341,24 @@ if __name__=="__main__":
     model = PPO.load("trained_models/pendulum")
 
     # Gather data for EDMD
-    Y, Z = gather_edmd_data(model, env, num_traj=10, steps_per_traj=100)
+    Z, Z_next, Y = gather_edmd_data(model, env, 
+            sample_length=50, 
+            num_samples=1000)
 
     # Fit an EDMD model
-    A, C = perform_edmd(Y, Z)
+    A, C = perform_edmd(Z, Z_next, Y)
 
-    ## Compare predictions in the lifted space
-    #compare_lifted_state_trajectories(env, model, A, num_steps=100)
+    # Compare predictions in the lifted space
+    compare_lifted_state_trajectories(env, model, A, num_steps=100)
 
-    ## Compare predictions in the observation space
-    #compare_trajectories(env, model, A, C, num_steps=100)
+    # Compare predictions in the observation space
+    compare_trajectories(env, model, A, C, num_steps=100)
 
-    ## Plot the eigenvalues of the learned Koopman operator approximation
-    #plot_eigenvalues(A)
+    # Plot the eigenvalues of the learned Koopman operator approximation
+    plot_eigenvalues(A)
         
     # Make vector field plots
+    plt.figure()
     plt.subplot(2,2,1)
     plt.title("Uncontrolled Vector Field")
     plot_pendulum_vector_field()
