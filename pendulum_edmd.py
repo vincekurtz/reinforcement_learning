@@ -96,7 +96,7 @@ def perform_edmd(Z, Z_next, Y):
         A: the dynamics matrix
         C: the projection matrix
     """
-    print("Performing EDMD")
+    print(f"Performing EDMD in {Z.shape[1]} dimensions")
 
     # Fit the lifted dynamics as
     #  z_{t+1} = z_t A  (note the awkward order to fit with numpy least squares)
