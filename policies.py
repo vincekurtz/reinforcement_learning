@@ -41,7 +41,11 @@ class KoopmanMlpExtractor(nn.Module):
 
         self.linear_feedback = nn.Linear(lifting_dim, output_size)
         
-        self.quadratic_value = Quadratic(lifting_dim)
+        #self.quadratic_value = Quadratic(lifting_dim)
+        self.value_network = nn.Sequential(
+                nn.Linear(input_size, 64), nn.Tanh(),
+                nn.Linear(64, 64), nn.Tanh(),
+                nn.Linear(64, 1))
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
@@ -51,8 +55,9 @@ class KoopmanMlpExtractor(nn.Module):
         return self.linear_feedback(phi)
 
     def forward_critic(self, x):
-        phi = self.lifting_function(x)
-        return self.quadratic_value(phi)
+        #phi = self.lifting_function(x)
+        #return self.quadratic_value(phi)
+        return self.value_network(x)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
