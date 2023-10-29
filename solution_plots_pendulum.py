@@ -33,7 +33,7 @@ def plot_pendulum_vector_field(n=25, sim_start_state=None):
 
     if sim_start_state is not None:
         # Run a little simulation and plot the trajectory
-        traj_length = 30
+        traj_length = 100
         X = np.zeros((2, traj_length))
         X[:, 0] = sim_start_state   # theta, theta_dot
         env.unwrapped.state = sim_start_state

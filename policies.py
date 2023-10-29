@@ -35,7 +35,7 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_vf = 1
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
-        lifting_dim = 128
+        lifting_dim = 64
         self.lifting_function = nn.Sequential(
                 nn.Linear(input_size, 64), nn.Tanh(),
                 nn.Linear(64, lifting_dim), nn.Tanh())
