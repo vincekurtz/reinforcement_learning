@@ -110,7 +110,8 @@ def perform_edmd(Z, Z_next, Y):
 
     return A, C
 
-def plot_controlled_pendulum_vector_field(env, model, n=25):
+def plot_controlled_pendulum_vector_field(env, model, n=25, 
+        sim_start_state=None):
     """
     Make a vector field plot of the controlled pendulum dynamics.
 
@@ -118,6 +119,8 @@ def plot_controlled_pendulum_vector_field(env, model, n=25):
         env: A gym environment for the pendulum
         model: A stable-baselines3 PPO model for the controller
         n: The number of points to plot in each dimension
+        sim_start_state: If not None, simulate a trajectory from this state and
+            plot it in red.
     """
     env.reset()
 
@@ -135,6 +138,29 @@ def plot_controlled_pendulum_vector_field(env, model, n=25):
 
             plt.arrow(theta, theta_dot, dtheta, dtheta_dot,
                     head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
+
+    if sim_start_state is not None:
+        # Run a little simulation and plot the trajectory
+        traj_length = 100
+        X = np.zeros((2, traj_length))
+        X[:, 0] = sim_start_state
+        env.unwrapped.state = sim_start_state
+        for i in range(1, traj_length):
+            obs = np.array([np.cos(X[0,i-1]), np.sin(X[0,i-1]), X[1,i-1]])
+            action, _ = model.predict(obs)
+            env.step(action)
+            theta, theta_dot = env.unwrapped.state
+
+            # Take care of wrapping in theta
+            last_theta = X[0,i-1]
+            if theta - last_theta > np.pi:
+                theta -= 2*np.pi
+            elif theta - last_theta < -np.pi:
+                theta += 2*np.pi
+
+            X[:,i] = np.array([theta, theta_dot])
+        
+        plt.plot(X[0,:], X[1,:], 'r', linewidth=2)
 
     plt.xlabel(r"$\theta$")
     plt.ylabel(r"$\dot{\theta}$")
@@ -262,7 +288,7 @@ def compare_trajectories(env, model, A, C, num_steps=100):
     plt.plot(Y_pred[:,2], label="predicted")
     plt.ylabel("theta_dot")
 
-def plot_koopman_vector_field(model, A, C, n=25):
+def plot_koopman_vector_field(model, A, C, n=25, sim_start_state=None):
     """
     Plot the vector field of the learned Koopman model of the controlled
     pendulum dynamics.
@@ -272,6 +298,8 @@ def plot_koopman_vector_field(model, A, C, n=25):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
         n: The number of points to plot in each dimension
+        sim_start_state: If not None, simulate a trajectory from this state and
+            plot it in red.
     """
     # Get the lifting function
     phi = model.policy.mlp_extractor.lifting_function
@@ -320,10 +348,68 @@ def plot_koopman_vector_field(model, A, C, n=25):
         plt.arrow(theta, theta_dot, theta_next-theta, theta_dot_next-theta_dot,
                 head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
 
+    # Plot a trajectory
+    if sim_start_state is not None:
+        traj_length = 100
+        X = np.zeros((2, traj_length))
+        X[:, 0] = sim_start_state
+        for i in range(1, traj_length):
+            y = np.array([np.cos(X[0,i-1]), np.sin(X[0,i-1]), X[1,i-1]])
+            with torch.no_grad():
+                y_torch = torch.from_numpy(y).float().to(model.device)
+                z = phi(y_torch).cpu().numpy()
+            z_next = z @ A
+            y_next = z_next @ C
+
+            theta = np.arctan2(y_next[1], y_next[0])
+            theta_dot = y_next[2]
+
+            # Take care of wrapping in theta
+            if theta - X[0,i-1] > np.pi:
+                theta -= 2*np.pi
+            elif theta - X[0,i-1] < -np.pi:
+                theta += 2*np.pi
+
+            X[:,i] = np.array([theta, theta_dot])
+        
+        plt.plot(X[0,:], X[1,:], 'r', linewidth=2)
+
     plt.xlabel(r"$\theta$")
     plt.ylabel(r"$\dot{\theta}$")
     plt.xlim([-np.pi, 2*np.pi])
     plt.ylim([-8, 8])
+
+def plot_vector_fields(model, env, A, C):
+    """
+    Make some vector field plots for the uncontrolled system, the controlled
+    system, and the Koopman model of the controlled system. Also plot the value 
+    function.
+
+    Args:
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        env: A gym environment for the pendulum
+        A: The learned Koopman matrix
+        C: The learned mapping from lifted state to observation
+    """
+    start_state = [2.5, 0]  # start state for little trajectory visualizaitons
+
+    plt.figure()
+    plt.subplot(2,2,1)
+    plt.title("Uncontrolled System")
+    plot_pendulum_vector_field(sim_start_state=start_state)
+
+    plt.subplot(2,2,3)
+    plt.title("Controlled System")
+    plot_controlled_pendulum_vector_field(env, model, 
+        sim_start_state=start_state)
+
+    plt.subplot(2,2,2)
+    plt.title("Value Function (Quadratic in Lifted State)")
+    plot_value_function(model)
+
+    plt.subplot(2,2,4)
+    plt.title("Koopman Model of Controlled System")
+    plot_koopman_vector_field(model, A, C, sim_start_state=start_state)
 
 if __name__=="__main__":
     # Try (vainly) to make things deterministic
@@ -348,31 +434,16 @@ if __name__=="__main__":
     # Fit an EDMD model
     A, C = perform_edmd(Z, Z_next, Y)
 
-    # Compare predictions in the lifted space
-    compare_lifted_state_trajectories(env, model, A, num_steps=100)
+    ## Compare predictions in the lifted space
+    #compare_lifted_state_trajectories(env, model, A, num_steps=100)
 
-    # Compare predictions in the observation space
-    compare_trajectories(env, model, A, C, num_steps=100)
+    ## Compare predictions in the observation space
+    #compare_trajectories(env, model, A, C, num_steps=100)
 
-    # Plot the eigenvalues of the learned Koopman operator approximation
-    plot_eigenvalues(A)
+    ## Plot the eigenvalues of the learned Koopman operator approximation
+    #plot_eigenvalues(A)
         
-    # Make vector field plots
-    plt.figure()
-    plt.subplot(2,2,1)
-    plt.title("Uncontrolled Vector Field")
-    plot_pendulum_vector_field(sim_start_state=[4, 0])
-
-    plt.subplot(2,2,3)
-    plt.title("Controlled Vector Field")
-    plot_controlled_pendulum_vector_field(env, model)
-
-    plt.subplot(2,2,2)
-    plt.title("Value Function (Quadratic in Koopman State))")
-    plot_value_function(model)
-
-    plt.subplot(2,2,4)
-    plt.title("Koopman Model of Controlled Vector Field")
-    plot_koopman_vector_field(model, A, C)
+    # Make vector fields to compare the learned and actual dynamics
+    plot_vector_fields(model, env, A, C)
 
     plt.show()
