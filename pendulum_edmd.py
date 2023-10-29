@@ -254,7 +254,7 @@ def compare_trajectories(env, model, A, C, num_steps=100):
     plt.plot(Y_pred[:,2], label="predicted")
     plt.ylabel("theta_dot")
 
-def plot_koopman_vector_field(model, A, C, n=10):
+def plot_koopman_vector_field(model, A, C, n=25):
     """
     Plot the vector field of the learned Koopman model of the controlled
     pendulum dynamics.
@@ -268,49 +268,49 @@ def plot_koopman_vector_field(model, A, C, n=10):
     # Get the lifting function
     phi = model.policy.mlp_extractor.lifting_function
 
-    for _ in range(10):
-        # Sample an initial state
-        theta = np.random.uniform(-np.pi, 2*np.pi)
-        theta_dot = np.random.uniform(-8, 8)
-        y0 = np.array([np.cos(theta), np.sin(theta), theta_dot])
+    # Sample initial states
+    thetas = np.linspace(-np.pi, 2*np.pi, n)
+    theta_dots = np.linspace(-8, 8, n)
 
-        # Compute the lifted state at the first timestep
-        with torch.no_grad():
-            y0_torch = torch.from_numpy(y0).float().to(model.device)
-            z0 = phi(y0_torch).cpu().numpy()
+    # Compute observations at each initial state
+    thetas_grid, theta_dots_grid = np.meshgrid(thetas, theta_dots)
+    Y = np.zeros((n*n, 3))
+    Y[:,0] = np.cos(thetas_grid.flatten())
+    Y[:,1] = np.sin(thetas_grid.flatten())
+    Y[:,2] = theta_dots_grid.flatten()
 
-        # Simulate the linear Koopman model
-        num_steps = 100
-        nz = z0.shape[0]
-        Z = np.zeros((num_steps, nz))
-        Z[0,:] = z0
-        Y_pred = np.zeros((num_steps, 3))
-        for step in range(0,num_steps-1):
-            Y_pred[step,:] = Z[step,:] @ C
-            Z[step+1,:] = Z[step,:] @ A
-        Y_pred[-1,:] = Z[-1,:] @ C
+    # Compute the lifted state at each initial state
+    with torch.no_grad():
+        Y_torch = torch.from_numpy(Y).float().to(model.device)
+        Z = phi(Y_torch).cpu().numpy()
 
-        old_theta = np.arctan2(Y_pred[0,1], Y_pred[0,0])
-        old_theta_dot = Y_pred[0,2]
-        for t in range(num_steps):
-            cos_theta = Y_pred[t,0]
-            sin_theta = Y_pred[t,1]
-            new_theta_dot = Y_pred[t,2]
+    # Flow along the linear lifted dynamics and project back to new observations
+    Z_next = Z @ A
+    Y_next = Z_next @ C
 
-            # Convert cos(theta), sin(theta) to theta. This is a little tricky
-            # because arctan2 only returns values in [-pi, pi], so we have to
-            # adjust to avoid wrapping
-            new_theta = np.arctan2(sin_theta, cos_theta)
-            if new_theta < old_theta - np.pi:
-                new_theta += 2*np.pi
-            elif new_theta > old_theta + np.pi:
-                new_theta -= 2*np.pi
+    # Translate observations y = [cos(theta), sin(theta), theta_dot] back to
+    # states x = [theta, theta_dot].
+    X_next = np.zeros((n*n, 2))
+    X_next[:,0] = np.arctan2(Y_next[:,1], Y_next[:,0])
+    X_next[:,1] = Y_next[:,2]
 
-            plt.arrow(old_theta, old_theta_dot, new_theta-old_theta, new_theta_dot-old_theta_dot,
-                    head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
+    # Handle wrapping of theta  
+    for i in range(n*n):
+        if X_next[i,0] < thetas_grid.flatten()[i] - np.pi:
+            X_next[i,0] += 2*np.pi
+        elif X_next[i,0] > thetas_grid.flatten()[i] + np.pi:
+            X_next[i,0] -= 2*np.pi
 
-            old_theta = new_theta
-            old_theta_dot = new_theta_dot
+    # Plot the vector field
+    for i in range(n*n):
+        theta = thetas_grid.flatten()[i]
+        theta_dot = theta_dots_grid.flatten()[i]
+
+        theta_next = X_next[i,0]
+        theta_dot_next = X_next[i,1]
+
+        plt.arrow(theta, theta_dot, theta_next-theta, theta_dot_next-theta_dot,
+                head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
 
     plt.xlabel(r"$\theta$")
     plt.ylabel(r"$\dot{\theta}$")
@@ -333,7 +333,7 @@ if __name__=="__main__":
     model = PPO.load("trained_models/pendulum")
 
     # Gather data for EDMD
-    Y, Z = gather_edmd_data(model, env, num_traj=100, steps_per_traj=100)
+    Y, Z = gather_edmd_data(model, env, num_traj=10, steps_per_traj=100)
 
     # Fit an EDMD model
     A, C = perform_edmd(Y, Z)
