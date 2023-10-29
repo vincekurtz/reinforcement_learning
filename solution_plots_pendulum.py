@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-def plot_pendulum_vector_field(n=25):
+def plot_pendulum_vector_field(n=25, sim_start_state=None):
     env = gym.make("Pendulum-v1")
     env.reset()
 
@@ -30,6 +30,27 @@ def plot_pendulum_vector_field(n=25):
 
             plt.arrow(theta, theta_dot, dtheta, dtheta_dot,
                     head_width=0.05, head_length=0.1, color='blue', alpha=0.5)
+
+    if sim_start_state is not None:
+        # Run a little simulation and plot the trajectory
+        traj_length = 30
+        X = np.zeros((2, traj_length))
+        X[:, 0] = sim_start_state   # theta, theta_dot
+        env.unwrapped.state = sim_start_state
+        for i in range(1, traj_length):
+            env.step([0])
+            theta, theta_dot = env.unwrapped.state
+
+            # Take care of wrapping in theta
+            last_theta = X[0,i-1]
+            if theta - last_theta > np.pi:
+                theta -= 2*np.pi
+            elif theta - last_theta < -np.pi:
+                theta += 2*np.pi
+
+            X[:,i] = np.array([theta, theta_dot])
+
+        plt.plot(X[0,:], X[1,:], 'r', linewidth=2)
 
     plt.xlabel(r"$\theta$")
     plt.ylabel(r"$\dot{\theta}$")

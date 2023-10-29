@@ -343,7 +343,7 @@ if __name__=="__main__":
     # Gather data for EDMD
     Z, Z_next, Y = gather_edmd_data(model, env, 
             sample_length=50, 
-            num_samples=1000)
+            num_samples=100)
 
     # Fit an EDMD model
     A, C = perform_edmd(Z, Z_next, Y)
@@ -361,7 +361,7 @@ if __name__=="__main__":
     plt.figure()
     plt.subplot(2,2,1)
     plt.title("Uncontrolled Vector Field")
-    plot_pendulum_vector_field()
+    plot_pendulum_vector_field(sim_start_state=[4, 0])
 
     plt.subplot(2,2,3)
     plt.title("Controlled Vector Field")
