@@ -19,12 +19,30 @@ class Quadratic(nn.Module):
     def forward(self, x):
         y = (x @ self.A @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
+    
+class DiagonalQuadratic(nn.Module):
+    """
+    A simple quadratic function
+
+        y = x'Ax + b'x + c
+
+    where A is a diagonal matrix, and (A, b, c) are learnable parameters.
+    """
+    def __init__(self, input_size):
+        super().__init__()
+        self.A = nn.Parameter(torch.randn(input_size), requires_grad=True)
+        self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
+        self.c = nn.Parameter(torch.randn(1), requires_grad=True)
+
+    def forward(self, x):
+        y = (x @ torch.diag(self.A) @ x.T).diag() + x @ self.b + self.c
+        return y.unsqueeze(-1)
 
 class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
     """
-    def __init__(self, input_size, output_size, num_linear_systems):
+    def __init__(self, input_size, output_size, lifting_dim):
         super().__init__()
 
         # The custom network must have these output dimensions as attributes
@@ -35,10 +53,9 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_vf = 1
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
-        lifting_dim = 64
         self.lifting_function = nn.Sequential(
-                nn.Linear(input_size, 64), nn.Tanh(),
-                nn.Linear(64, lifting_dim), nn.Tanh())
+                nn.Linear(input_size, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
 
         self.linear_feedback = nn.Linear(lifting_dim, output_size)
         self.quadratic_value = Quadratic(lifting_dim)
@@ -61,21 +78,21 @@ class KoopmanPolicy(ActorCriticPolicy):
     directly.
     """
     def __init__(self, observation_space, action_space, lr_schedule,
-                 num_linear_systems, *args, **kwargs):
-        self.num_linear_systems = num_linear_systems
+                 lifting_dim, *args, **kwargs):
+        self.lifting_dim = lifting_dim
         super().__init__(observation_space, action_space, lr_schedule, *args,
                 **kwargs)
 
     def _build_mlp_extractor(self):
         self.mlp_extractor = KoopmanMlpExtractor(
             self.features_dim, self.action_space.shape[0], 
-            self.num_linear_systems)
+            self.lifting_dim)
         
     def save(self, path):
         """
         Save the policy to disk, including some extra custom params. 
         """
-        super().save(path, include=["num_linear_systems"])
+        super().save(path, include=["lifting_dim"])
 
 class ParallelLinear(nn.Module):
     """
