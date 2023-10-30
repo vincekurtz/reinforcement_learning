@@ -19,10 +19,10 @@ from policies import KoopmanPolicy
 from envs import HistoryWrapper
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = True
+MLP_BASELINE = False
 
 # Try to make things deterministic
-SEED = 3
+SEED = 1
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -53,7 +53,7 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4, 
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    verbose=1, policy_kwargs={"lifting_dim": 64})
+                    verbose=1, policy_kwargs={"lifting_dim": 128})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())

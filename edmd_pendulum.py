@@ -411,6 +411,34 @@ def plot_vector_fields(model, env, A, C):
     plt.title("Koopman Model of Controlled System")
     plot_koopman_vector_field(model, A, C, sim_start_state=start_state)
 
+@torch.no_grad()
+def check_lyapunov_conditions(model, A):
+    """
+    Try to verify whether any Lyapunov stability conditions hold for the learned
+    lifted-space dynamics,
+
+        z_{t+1} = A z_t,
+        where z_t = phi(y_t).
+
+    Args:
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        A: The learned Koopman matrix
+    """
+    # TODO: handle extra transformations from
+    #   - "reward" rather than "cost"
+    #   - Extra linear and offest terms in value function
+    #   - Extra linear transformation at the end
+    P = model.policy.mlp_extractor.quadratic_value.A.cpu().numpy()
+
+    # print eigenvalues of P
+    print("Eigenvalues of P:")
+    print(np.linalg.eigvals(P))
+
+    # Q = P - A^T P A
+    Q = P - A.T @ P @ A
+    print("Eigenvalues of Q:")
+    print(np.linalg.eigvals(Q))
+
 if __name__=="__main__":
     # Try (vainly) to make things deterministic
     SEED = 1
@@ -434,14 +462,14 @@ if __name__=="__main__":
     # Fit an EDMD model
     A, C = perform_edmd(Z, Z_next, Y)
 
-    ## Compare predictions in the lifted space
-    #compare_lifted_state_trajectories(env, model, A, num_steps=100)
+    # Compare predictions in the lifted space
+    compare_lifted_state_trajectories(env, model, A, num_steps=100)
 
-    ## Compare predictions in the observation space
-    #compare_trajectories(env, model, A, C, num_steps=100)
+    # Compare predictions in the observation space
+    compare_trajectories(env, model, A, C, num_steps=100)
 
-    ## Plot the eigenvalues of the learned Koopman operator approximation
-    #plot_eigenvalues(A)
+    # Plot the eigenvalues of the learned Koopman operator approximation
+    plot_eigenvalues(A)
         
     # Make vector fields to compare the learned and actual dynamics
     plot_vector_fields(model, env, A, C)

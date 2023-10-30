@@ -64,7 +64,7 @@ def train():
                     batch_size=64, clip_range=0.1, ent_coef=0.000401762,
                     gae_lambda=0.92, gamma=0.98, learning_rate=2.0633e-5, 
                     max_grad_norm=0.8, n_epochs=20, n_steps=512, vf_coef=0.58096,
-                    policy_kwargs={"num_linear_systems": 1,
+                    policy_kwargs={"lifting_dim": 256,
                                    "log_std_init": -2,
                                    "ortho_init": False},
                     tensorboard_log="/tmp/half_cheetah_tensorboard/")
@@ -72,6 +72,7 @@ def train():
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
     print(f"Training a policy with {num_params} parameters")
+    print(model.policy)
 
     # Do the learning
     model.learn(total_timesteps=1_000_000)
