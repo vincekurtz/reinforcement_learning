@@ -73,7 +73,7 @@ if __name__=="__main__":
     baseline_log_dirs = ["/tmp/pendulum_tensorboard/PPO_4",
                          "/tmp/pendulum_tensorboard/PPO_5",
                          "/tmp/pendulum_tensorboard/PPO_6"]
-    plot_learning_curve(koopman_log_dirs, "Koopman RL")
+    plot_learning_curve(koopman_log_dirs, "Quadratic Value Function")
     plot_learning_curve(baseline_log_dirs, "Standard RL")
 
     # Use exponential notation on x axis

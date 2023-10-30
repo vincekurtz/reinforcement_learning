@@ -4,5 +4,4 @@ __pycache__
 .vscode
 *.pt
 *.pkl
-*.png
 cleanrl/runs/

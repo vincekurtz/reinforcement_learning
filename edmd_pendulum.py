@@ -391,7 +391,7 @@ def plot_vector_fields(model, env, A, C):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
     """
-    start_state = [2.5, 0.0]  # start state for little trajectory visualizations
+    start_state = [2.0, 0.0]  # start state for little trajectory visualizations
 
     plt.figure()
     plt.subplot(2,2,1)
