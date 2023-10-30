@@ -19,10 +19,10 @@ from policies import KoopmanPolicy
 from envs import HistoryWrapper
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = False
+MLP_BASELINE = True
 
 # Try to make things deterministic
-SEED = 1
+SEED = 3
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
