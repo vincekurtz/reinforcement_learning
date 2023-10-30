@@ -463,10 +463,10 @@ if __name__=="__main__":
     A, C = perform_edmd(Z, Z_next, Y)
 
     # Compare predictions in the lifted space
-    compare_lifted_state_trajectories(env, model, A, num_steps=100)
+    #compare_lifted_state_trajectories(env, model, A, num_steps=100)
 
     # Compare predictions in the observation space
-    compare_trajectories(env, model, A, C, num_steps=100)
+    #compare_trajectories(env, model, A, C, num_steps=100)
 
     # Plot the eigenvalues of the learned Koopman operator approximation
     plot_eigenvalues(A)

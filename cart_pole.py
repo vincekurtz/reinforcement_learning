@@ -15,7 +15,7 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 
-from policies import LinearPolicy
+from policies import KoopmanPolicy
 from envs import HistoryWrapper
 
 # Try to make things deterministic
@@ -42,9 +42,9 @@ def train():
     vec_env = make_environment() 
     
     # set up the model (a.k.a. controller)
-    model = PPO(LinearPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
-                tensorboard_log="/tmp/cart_pole_tensorboard/",
-                verbose=1)
+    model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3, 
+                tensorboard_log="/tmp/pendulum_tensorboard/",
+                verbose=1, policy_kwargs={"lifting_dim": 32})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -60,7 +60,7 @@ def test():
     """
     Load the trained model from disk and run a little simulation
     """
-    vec_env = make_environment(render_mode="human")
+    vec_env = make_environment(render_mode="rgb_array")
     model = PPO.load("trained_models/cart_pole")
 
     obs = vec_env.reset()
