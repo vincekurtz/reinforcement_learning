@@ -6,38 +6,38 @@ class Quadratic(nn.Module):
     """
     A simple quadratic function
 
-        y = x'Ax + b'x + c
+        y = x'Qx + b'x + c
 
-    where A, b, and c are learnable parameters.
+    where Q, b, and c are learnable parameters.
     """
     def __init__(self, input_size):
         super().__init__()
-        self.A = nn.Parameter(torch.randn(input_size, input_size), requires_grad=True)
+        self.Q = nn.Parameter(torch.randn(input_size, input_size), requires_grad=True)
         self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
         self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
-        y = (x @ self.A @ x.T).diag() + x @ self.b + self.c
+        y = (x @ self.Q @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
     
 class DiagonalQuadratic(nn.Module):
     """
     A simple quadratic function
 
-        y = x'Ax + b'x + c
+        y = x'Qx + b'x + c
 
-    where A is a diagonal matrix, and (A, b, c) are learnable parameters.
+    where Q is a diagonal matrix, and (Q, b, c) are learnable parameters.
     """
     def __init__(self, input_size):
         super().__init__()
-        self.A = nn.Parameter(torch.randn(input_size), requires_grad=True)
+        self.Q = nn.Parameter(torch.randn(input_size), requires_grad=True)
         self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
         self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
-        y = (x @ torch.diag(self.A) @ x.T).diag() + x @ self.b + self.c
+        y = (x @ torch.diag(self.Q) @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
-
+    
 class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
