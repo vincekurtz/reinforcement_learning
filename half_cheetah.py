@@ -17,6 +17,7 @@ from stable_baselines3.common.monitor import Monitor
 from policies import KoopmanPolicy
 from envs import HistoryWrapper
 import gymnasium as gym
+import time
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
 MLP_BASELINE = False
@@ -53,20 +54,19 @@ def train():
         model = PPO('MlpPolicy', vec_env, verbose=1, 
                     batch_size=64, clip_range=0.1, ent_coef=0.000401762,
                     gae_lambda=0.92, gamma=0.98, learning_rate=2.0633e-5, 
-                    max_grad_norm=0.8, n_epochs=20, n_steps=512,
+                    max_grad_norm=0.8, n_epochs=20, n_steps=512, vf_coef=0.58096,
                     policy_kwargs=dict(log_std_init=-2, ortho_init=False, 
                                    activation_fn=nn.ReLU,
                                    net_arch=dict(pi=[256, 256], vf=[256, 256])),
-                    vf_coef=0.58096,
                     tensorboard_log="/tmp/half_cheetah_tensorboard/")
     else:
         model = PPO(KoopmanPolicy, vec_env, verbose=1,
                     batch_size=64, clip_range=0.1, ent_coef=0.000401762,
                     gae_lambda=0.92, gamma=0.98, learning_rate=2.0633e-5, 
                     max_grad_norm=0.8, n_epochs=20, n_steps=512, vf_coef=0.58096,
-                    policy_kwargs={"lifting_dim": 256,
-                                   "log_std_init": -2,
-                                   "ortho_init": False},
+                    clip_range_vf=0.2,
+                    policy_kwargs=dict(log_std_init=-2, ortho_init=False, 
+                                   lifting_dim=256),
                     tensorboard_log="/tmp/half_cheetah_tensorboard/")
 
     # Print how many parameters this thing has
@@ -84,7 +84,7 @@ def test():
     """
     Load the trained model from disk and run a little simulation
     """
-    vec_env = make_environment(render_mode="human")
+    vec_env = make_environment(render_mode="rgb_array")
     model = PPO.load("trained_models/half_cheetah")
 
     obs = vec_env.reset()
@@ -92,6 +92,7 @@ def test():
         action, _ = model.predict(obs, deterministic=True)
         obs, _, _, _ = vec_env.step(action)
         vec_env.render("human")
+        time.sleep(0.05)
 
 if __name__=="__main__":
     # Must run with --train or --test
