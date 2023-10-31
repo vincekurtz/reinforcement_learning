@@ -391,7 +391,7 @@ def plot_vector_fields(model, env, A, C):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
     """
-    start_state = [2.0, 0.0]  # start state for little trajectory visualizations
+    start_state = [3.1, 0.0]  # start state for little trajectory visualizations
 
     plt.figure()
     plt.subplot(2,2,1)
@@ -449,6 +449,9 @@ if __name__=="__main__":
 
     # Create the environment
     env = gym.make("Pendulum-v1")
+    env.unwrapped.max_torque = 1.0
+    env.unwrapped.action_space.low = -env.unwrapped.max_torque
+    env.unwrapped.action_space.high = env.unwrapped.max_torque
     env.action_space.seed(SEED)
 
     # Load the learned model
@@ -457,7 +460,7 @@ if __name__=="__main__":
     # Gather data for EDMD
     Z, Z_next, Y = gather_edmd_data(model, env, 
             sample_length=50, 
-            num_samples=100)
+            num_samples=500)
 
     # Fit an EDMD model
     A, C = perform_edmd(Z, Z_next, Y)
@@ -469,7 +472,7 @@ if __name__=="__main__":
     #compare_trajectories(env, model, A, C, num_steps=100)
 
     # Plot the eigenvalues of the learned Koopman operator approximation
-    plot_eigenvalues(A)
+    #plot_eigenvalues(A)
         
     # Make vector fields to compare the learned and actual dynamics
     plot_vector_fields(model, env, A, C)

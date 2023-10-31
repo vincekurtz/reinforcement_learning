@@ -30,7 +30,11 @@ def make_environment(render_mode=None):
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
+    max_torque = 1.0
     env = gym.make("Pendulum-v1", render_mode=render_mode)
+    env.unwrapped.max_torque = max_torque
+    env.unwrapped.action_space.low = -max_torque
+    env.unwrapped.action_space.high = max_torque
     env.action_space.seed(SEED)
     if not MLP_BASELINE:
         env = HistoryWrapper(env, 1)
