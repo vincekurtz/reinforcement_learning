@@ -16,7 +16,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 
 from policies import KoopmanPolicy
-from envs import HistoryWrapper
+
+# Whether to use a standard MLP as a baseline
+MLP_BASELINE = True
 
 # Try to make things deterministic
 SEED = 1
@@ -40,9 +42,16 @@ def train():
     """
     vec_env = make_environment() 
     
-    model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4, 
-                tensorboard_log="/tmp/humanoid_tensorboard/",
-                verbose=1, policy_kwargs={"lifting_dim": 256})
+    if MLP_BASELINE:
+        model = PPO("MlpPolicy", vec_env, 
+                    policy_kwargs=dict(
+                        net_arch=dict(pi=[1024,1024], vf=[1024,1024])),
+                    tensorboard_log="/tmp/humanoid_tensorboard/",
+                    verbose=1)
+    else:
+        model = PPO(KoopmanPolicy, vec_env, 
+                    tensorboard_log="/tmp/humanoid_tensorboard/",
+                    verbose=1, policy_kwargs={"lifting_dim": 1024})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -50,7 +59,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=20_000)
+    model.learn(total_timesteps=2_000_000)
 
     # Save the model
     model.save("trained_models/humanoid")
@@ -61,12 +70,17 @@ def test():
     """
     vec_env = make_environment(render_mode="rgb_array")
     model = PPO.load("trained_models/humanoid")
+    
+    num_params = sum(p.numel() for p in model.policy.parameters())
+    print(f"Loaded policy with {num_params} parameters")
 
     obs = vec_env.reset()
     for i in range(1000):
         action, _ = model.predict(obs, deterministic=True)
         obs, _, _, _ = vec_env.step(action)
         vec_env.render("human")
+        import time
+        time.sleep(0.01)
 
 if __name__=="__main__":
     # Must run with --train or --test
