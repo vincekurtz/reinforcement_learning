@@ -391,7 +391,7 @@ def plot_vector_fields(model, env, A, C):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
     """
-    start_state = [3.1, 0.0]  # start state for little trajectory visualizations
+    start_state = [2.5, 0.0]  # start state for little trajectory visualizations
 
     plt.figure()
     plt.subplot(2,2,1)
@@ -472,7 +472,7 @@ if __name__=="__main__":
     #compare_trajectories(env, model, A, C, num_steps=100)
 
     # Plot the eigenvalues of the learned Koopman operator approximation
-    #plot_eigenvalues(A)
+    plot_eigenvalues(A)
         
     # Make vector fields to compare the learned and actual dynamics
     plot_vector_fields(model, env, A, C)
