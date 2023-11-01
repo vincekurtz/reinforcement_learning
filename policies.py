@@ -58,7 +58,6 @@ class KoopmanMlpExtractor(nn.Module):
 
         self.linear_feedback = nn.Linear(lifting_dim, lifting_dim, bias=False)
         self.control_projection = nn.Sequential(
-                nn.Tanh(),
                 nn.Linear(lifting_dim, output_size))
 
         self.quadratic_value = Quadratic(lifting_dim)

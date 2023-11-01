@@ -472,7 +472,7 @@ if __name__=="__main__":
     #compare_trajectories(env, model, A, C, num_steps=100)
 
     # Plot the eigenvalues of the learned Koopman operator approximation
-    plot_eigenvalues(A)
+    #plot_eigenvalues(A)
         
     # Make vector fields to compare the learned and actual dynamics
     plot_vector_fields(model, env, A, C)

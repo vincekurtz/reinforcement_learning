@@ -53,7 +53,7 @@ def train():
     if MLP_BASELINE:
         model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    policy_kwargs=dict(net_arch=[64, 64]),
+                    policy_kwargs=dict(net_arch=[32, 32]),
                     verbose=1)
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4,
@@ -66,7 +66,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=300_000)
+    model.learn(total_timesteps=250_000)
 
     # Save the model
     model.save("trained_models/pendulum")
