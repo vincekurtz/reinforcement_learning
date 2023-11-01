@@ -57,7 +57,11 @@ class KoopmanMlpExtractor(nn.Module):
                 nn.Linear(input_size, lifting_dim), nn.Tanh(),
                 nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
 
-        self.linear_feedback = nn.Linear(lifting_dim, output_size)
+        self.linear_feedback = nn.Linear(lifting_dim, lifting_dim, bias=False)
+        self.control_projection = nn.Sequential(
+                nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, output_size))
+
         self.quadratic_value = Quadratic(lifting_dim)
 
     def forward(self, x):
@@ -65,7 +69,8 @@ class KoopmanMlpExtractor(nn.Module):
 
     def forward_actor(self, x):
         phi = self.lifting_function(x)
-        return self.linear_feedback(phi)
+        v = self.linear_feedback(phi)
+        return self.control_projection(v)
 
     def forward_critic(self, x):
         phi = self.lifting_function(x)

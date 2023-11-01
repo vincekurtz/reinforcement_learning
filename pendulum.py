@@ -30,7 +30,7 @@ def make_environment(render_mode=None):
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
-    max_torque = 1.0
+    max_torque = 2.0
     env = gym.make("Pendulum-v1", render_mode=render_mode)
     env.unwrapped.max_torque = max_torque
     env.unwrapped.action_space.low = -max_torque
@@ -53,11 +53,12 @@ def train():
     if MLP_BASELINE:
         model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
+                    policy_kwargs=dict(net_arch=[64, 64]),
                     verbose=1)
     else:
-        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4, 
+        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    verbose=1, policy_kwargs={"lifting_dim": 128})
+                    verbose=1, policy_kwargs={"lifting_dim": 64})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -65,7 +66,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=1)
+    model.learn(total_timesteps=200_000)
 
     # Save the model
     model.save("trained_models/pendulum")

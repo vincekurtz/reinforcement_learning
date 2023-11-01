@@ -58,8 +58,7 @@ def gather_edmd_data(model, env, sample_length=10, num_samples=100):
             Y[i,:] = env.unwrapped._get_obs()
 
             # Step the environment
-            #action, _ = model.predict(Y[i,:])
-            action = [0]
+            action, _ = model.predict(Y[i,:])
             obs, _, _, _, _ = env.step(action)
 
             # Record the next observation
@@ -392,7 +391,7 @@ def plot_vector_fields(model, env, A, C):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
     """
-    start_state = [0.0, 2.5]  # start state for little trajectory visualizations
+    start_state = [3.1, 0.0]  # start state for little trajectory visualizations
 
     plt.figure()
     plt.subplot(2,2,1)
@@ -450,7 +449,7 @@ if __name__=="__main__":
 
     # Create the environment
     env = gym.make("Pendulum-v1")
-    env.unwrapped.max_torque = 1.0
+    env.unwrapped.max_torque = 2.0
     env.unwrapped.action_space.low = -env.unwrapped.max_torque
     env.unwrapped.action_space.high = env.unwrapped.max_torque
     env.action_space.seed(SEED)
