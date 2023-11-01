@@ -17,7 +17,7 @@ class Quadratic(nn.Module):
         self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
-        y = (x @ self.Q @ x.T).diag() + x @ self.b + self.c
+        y = (x @ self.Q.T @ self.Q @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
     
 class DiagonalQuadratic(nn.Module):
