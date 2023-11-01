@@ -17,6 +17,94 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
+def phi_rbf(y, lifting_size, sigma=0.5):
+    """
+    A lifting function z = phi(y) that maps observations to lifted states.
+    Composed of RBFs centered at evenly spaced points in the observation
+    space.
+    """
+    def RBF(y, c, sigma):
+        """
+        Compute a radial basis function centered at c with width sigma.
+        """
+        return np.exp(-np.linalg.norm(y-c)**2 / (2*sigma**2))
+
+    # Centers is a matrix of shape (lifting_size, 3) containing the centers
+    # of the RBFs. 
+    centers = np.vstack([
+        np.linspace(-1, 1, lifting_size),
+        np.linspace(-1, 1, lifting_size),
+        np.linspace(-8, 8, lifting_size)]).T
+
+    # Compute the RBFs
+    z = np.zeros(lifting_size)
+    for i in range(lifting_size):
+        z[i] = RBF(y, centers[i,:], sigma)
+
+    return z
+
+def gather_rbf_edmd_data(model, env, lifting_size, 
+                         sample_length=10, num_samples=100):
+    """
+    Gather data for fitting an EDMD model,
+
+        z_{t+1} = A z_t
+        y_t = C z_t
+
+    where z_t is a lifted state computed using radial basis functions.
+
+    Args:
+        model: A stable-baselines3 PPO model for the controller
+        env: A gym environment for the pendulum
+        lifting_size: The number of radial basis functions to use
+        sample_length: The number of steps to simulate for each sample
+        num_samples: The number of samples to gather
+
+    Return:
+        Z: A numpy array of shape (num_samples*sample_length, lifting_size)
+         containing the starting lifted state for each sample.
+        Z_next: A numpy array of shape (num_samples*sample_length, lifting_size)
+         containing the lifted state at the next timestep for each sample.
+        Y: A numpy array of shape (num_samples*sample_length, 3) containing the
+         starting observation for each sample.
+    """
+    print("Gathering Data")
+    env.reset()
+    
+    # Allocate observation arrays
+    Y = np.zeros((num_samples*sample_length, 3))
+    Y_next = np.zeros((num_samples*sample_length, 3))
+
+    # Compute the observations by simulating the system for a single step
+    i = 0
+    for _ in range(num_samples):
+        # Sample an initial state
+        theta = np.random.uniform(-np.pi, np.pi)
+        theta_dot = np.random.uniform(-8, 8)
+        env.unwrapped.state = np.array([theta, theta_dot])
+
+        for _ in range(sample_length):
+            # Record the initial observation
+            Y[i,:] = env.unwrapped._get_obs()
+
+            # Step the environment
+            action, _ = model.predict(Y[i,:])
+            obs, _, _, _, _ = env.step(action)
+
+            # Record the next observation
+            Y_next[i,:] = obs
+            i += 1
+
+    # Compute the lifting Z = phi(Y)
+    Z = np.zeros((num_samples*sample_length, lifting_size))
+    Z_next = np.zeros((num_samples*sample_length, lifting_size))
+
+    for i in range(num_samples*sample_length):
+        Z[i,:] = phi_rbf(Y[i,:], lifting_size)
+        Z_next[i,:] = phi_rbf(Y_next[i,:], lifting_size)
+
+    return Z, Z_next, Y
+
 def gather_edmd_data(model, env, sample_length=10, num_samples=100):
     """
     Gather data for fitting an EDMD model,
@@ -288,6 +376,62 @@ def compare_trajectories(env, model, A, C, num_steps=100):
     plt.plot(Y_pred[:,2], label="predicted")
     plt.ylabel("theta_dot")
 
+def compare_trajectories_rbf(env, model, A, C, num_steps=100):
+    """
+    Compare a trajectory we get from simulating the controlled system to a
+    trajectory we get from the learned RBF Koopman model of the controlled 
+    system.
+
+    Args:
+        env: A gym environment for the pendulum
+        model: A stable-baselines3 PPO model for the controller + lifting function
+        A: The learned Koopman matrix
+        C: The learned mapping from lifted state to observation
+        num_steps: The number of steps to simulate
+    """
+    plt.figure()
+    lifting_size = A.shape[0]
+
+    # Simulate a trajectory closed-loop
+    obs, _ = env.reset()
+    Y = np.zeros((num_steps, 3))
+    for step in range(num_steps):
+        Y[step,:] = obs
+        action, _ = model.predict(obs)
+        obs, _, _, _, _ = env.step(action)
+
+    # Compute the lifted state at the first timestep
+    z0 = phi_rbf(Y[0,:], lifting_size)
+
+    # Simulate the linear Koopman model
+    Z = np.zeros((num_steps, lifting_size))
+    Z[0,:] = z0
+    Y_pred = np.zeros((num_steps, 3))
+    for step in range(0,num_steps-1):
+        Y_pred[step,:] = Z[step,:] @ C
+        Z[step+1,:] = Z[step,:] @ A
+    Y_pred[-1,:] = Z[-1,:] @ C
+
+    # Plot the observations
+    plt.subplot(3,1,1)
+    plt.plot(Y[:,0], label="actual")
+    plt.plot(Y_pred[:,0], label="predicted")
+    plt.ylim((-1.5, 1.5))
+    plt.ylabel("cos(theta)")
+    plt.legend()
+
+    plt.subplot(3,1,2)
+    plt.plot(Y[:,1], label="actual")
+    plt.plot(Y_pred[:,1], label="predicted")
+    plt.ylim((-1.5, 1.5))
+    plt.ylabel("sin(theta)")
+
+    plt.subplot(3,1,3)
+    plt.plot(Y[:,2], label="actual")
+    plt.plot(Y_pred[:,2], label="predicted")
+    plt.ylim((-8, 8))
+    plt.ylabel("theta_dot")
+
 def plot_koopman_vector_field(model, A, C, n=25, sim_start_state=None):
     """
     Plot the vector field of the learned Koopman model of the controlled
@@ -458,7 +602,11 @@ if __name__=="__main__":
     model = PPO.load("trained_models/pendulum")
 
     # Gather data for EDMD
-    Z, Z_next, Y = gather_edmd_data(model, env, 
+    #Z, Z_next, Y = gather_edmd_data(model, env, 
+    #        sample_length=50, 
+    #        num_samples=500)
+    Z, Z_next, Y = gather_rbf_edmd_data(model, env, 
+            lifting_size=128,
             sample_length=50, 
             num_samples=500)
 
@@ -470,11 +618,13 @@ if __name__=="__main__":
 
     # Compare predictions in the observation space
     #compare_trajectories(env, model, A, C, num_steps=100)
+    compare_trajectories_rbf(env, model, A, C, num_steps=100)
+
 
     # Plot the eigenvalues of the learned Koopman operator approximation
     #plot_eigenvalues(A)
         
     # Make vector fields to compare the learned and actual dynamics
-    plot_vector_fields(model, env, A, C)
+    #plot_vector_fields(model, env, A, C)
 
     plt.show()
