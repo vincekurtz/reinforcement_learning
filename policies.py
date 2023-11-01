@@ -54,12 +54,11 @@ class KoopmanMlpExtractor(nn.Module):
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
         self.lifting_function = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.Tanh(),
-                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
+                nn.Linear(input_size, lifting_dim), nn.Tanh())
 
         self.linear_feedback = nn.Linear(lifting_dim, lifting_dim, bias=False)
         self.control_projection = nn.Sequential(
-                nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+                nn.Tanh(),
                 nn.Linear(lifting_dim, output_size))
 
         self.quadratic_value = Quadratic(lifting_dim)
