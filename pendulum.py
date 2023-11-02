@@ -66,7 +66,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=250_000)
+    model.learn(total_timesteps=300_000)
 
     # Save the model
     model.save("trained_models/pendulum")

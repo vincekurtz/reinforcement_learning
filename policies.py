@@ -12,12 +12,31 @@ class Quadratic(nn.Module):
     """
     def __init__(self, input_size):
         super().__init__()
-        self.Q = nn.Parameter(torch.randn(input_size, input_size), requires_grad=True)
+        self.input_size = input_size
+
+        # Parameterize Q = LL' where L is a lower triangular matrix
+        self.L_vars = nn.Parameter(
+            torch.randn(input_size*(input_size+1)//2), requires_grad=True)
+        self.tril_indices = torch.tril_indices(input_size, input_size).tolist()
+
+        #num_vars = input_size*(input_size+1)//2
+        #self.Q_vars = nn.Parameter(torch.randn(num_vars), requires_grad=True)
+        #self.L = torch.zeros(self.input_size, self.input_size)
+        #self.L[torch.tril_indices(self.input_size, self.input_size).tolist()] = self.Q_vars
+        #self.L = nn.Parameter(self.L)
+        #self.L = nn.Parameter(torch.randn(self.input_size, self.input_size), requires_grad=True)
+
         self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
         self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
-        y = (x @ self.Q.T @ self.Q @ x.T).diag() + x @ self.b + self.c
+        # Construct the lower triangular matrix L
+        L = torch.zeros(self.input_size, self.input_size).to(x.device)
+        L[self.tril_indices] = self.L_vars
+
+        # Compute the output of the quadratic function [batch_size, 1]
+        Q = L @ L.T
+        y = (x @ Q @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
     
 class DiagonalQuadratic(nn.Module):
@@ -55,10 +74,7 @@ class KoopmanMlpExtractor(nn.Module):
         # Lifting function maps to a higher-dimensional Koopman-invariant space
         self.lifting_function = nn.Sequential(
                 nn.Linear(input_size, lifting_dim), nn.Tanh())
-
-        self.linear_feedback = nn.Linear(lifting_dim, lifting_dim, bias=False)
-        self.control_projection = nn.Sequential(
-                nn.Linear(lifting_dim, output_size))
+        self.linear_feedback = nn.Linear(lifting_dim, output_size, bias=False)
 
         self.quadratic_value = Quadratic(lifting_dim)
 
@@ -67,8 +83,8 @@ class KoopmanMlpExtractor(nn.Module):
 
     def forward_actor(self, x):
         phi = self.lifting_function(x)
-        v = self.linear_feedback(phi)
-        return self.control_projection(v)
+        return self.linear_feedback(phi)
+        #return self.control_projection(v)
 
     def forward_critic(self, x):
         phi = self.lifting_function(x)
