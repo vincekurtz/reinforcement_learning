@@ -91,7 +91,10 @@ class KoopmanMlpExtractor(nn.Module):
                 nn.Linear(input_size, lifting_dim), nn.Tanh())
         
         # Policy is a linear map from the lifted space to actions
-        self.linear_feedback = nn.Linear(lifting_dim, output_size, bias=False)
+        self.linear_feedback = nn.Sequential(
+            nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+            nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+            nn.Linear(lifting_dim, output_size))
 
         # Value function is quadratic in the lifted space
         self.quadratic_value = PsdQuadratic(lifting_dim)

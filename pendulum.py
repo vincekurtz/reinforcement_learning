@@ -58,7 +58,7 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    verbose=1, policy_kwargs={"lifting_dim": 32})
+                    verbose=1, policy_kwargs={"lifting_dim": 16})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
