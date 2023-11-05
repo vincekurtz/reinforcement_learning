@@ -363,6 +363,7 @@ class RolloutBuffer(BaseBuffer):
     """
 
     observations: np.ndarray
+    next_observations: np.ndarray
     actions: np.ndarray
     rewards: np.ndarray
     advantages: np.ndarray
@@ -389,6 +390,7 @@ class RolloutBuffer(BaseBuffer):
 
     def reset(self) -> None:
         self.observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=np.float32)
+        self.next_observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=np.float32)
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
@@ -438,7 +440,7 @@ class RolloutBuffer(BaseBuffer):
 
     def add(
         self,
-        obs: np.ndarray,
+        obs: np.ndarray,  # TODO: add next_obs
         action: np.ndarray,
         reward: np.ndarray,
         episode_start: np.ndarray,
@@ -468,6 +470,7 @@ class RolloutBuffer(BaseBuffer):
         action = action.reshape((self.n_envs, self.action_dim))
 
         self.observations[self.pos] = np.array(obs)
+        self.next_observations[self.pos] = np.array(obs)   # TODO: use next_obs
         self.actions[self.pos] = np.array(action)
         self.rewards[self.pos] = np.array(reward)
         self.episode_starts[self.pos] = np.array(episode_start)
@@ -484,6 +487,7 @@ class RolloutBuffer(BaseBuffer):
         if not self.generator_ready:
             _tensor_names = [
                 "observations",
+                "next_observations",
                 "actions",
                 "values",
                 "log_probs",
@@ -511,6 +515,7 @@ class RolloutBuffer(BaseBuffer):
     ) -> RolloutBufferSamples:
         data = (
             self.observations[batch_inds],
+            self.next_observations[batch_inds],
             self.actions[batch_inds],
             self.values[batch_inds].flatten(),
             self.log_probs[batch_inds].flatten(),

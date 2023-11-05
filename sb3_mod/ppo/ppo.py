@@ -206,6 +206,10 @@ class PPO(OnPolicyAlgorithm):
             # Do a complete pass on the rollout buffer
             for rollout_data in self.rollout_buffer.get(self.batch_size):
                 print(type(self.rollout_buffer))
+                print(rollout_data.observations.shape)
+                print(rollout_data.next_observations.shape)
+                print(rollout_data.observations[0,:])
+                print(rollout_data.next_observations[0,:])
                 sys.exit()
 
                 actions = rollout_data.actions
