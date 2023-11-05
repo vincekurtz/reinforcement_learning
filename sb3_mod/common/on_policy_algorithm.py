@@ -222,6 +222,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
 
             rollout_buffer.add(
                 self._last_obs,  # type: ignore[arg-type]
+                new_obs,
                 actions,
                 rewards,
                 self._last_episode_starts,  # type: ignore[arg-type]

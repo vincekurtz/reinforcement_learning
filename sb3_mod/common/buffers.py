@@ -440,7 +440,8 @@ class RolloutBuffer(BaseBuffer):
 
     def add(
         self,
-        obs: np.ndarray,  # TODO: add next_obs
+        obs: np.ndarray,
+        next_obs: np.ndarray,
         action: np.ndarray,
         reward: np.ndarray,
         episode_start: np.ndarray,
@@ -470,7 +471,7 @@ class RolloutBuffer(BaseBuffer):
         action = action.reshape((self.n_envs, self.action_dim))
 
         self.observations[self.pos] = np.array(obs)
-        self.next_observations[self.pos] = np.array(obs)   # TODO: use next_obs
+        self.next_observations[self.pos] = np.array(next_obs)
         self.actions[self.pos] = np.array(action)
         self.rewards[self.pos] = np.array(reward)
         self.episode_starts[self.pos] = np.array(episode_start)
