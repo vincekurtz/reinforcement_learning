@@ -98,6 +98,9 @@ class KoopmanMlpExtractor(nn.Module):
         # Value function is quadratic in the lifted space
         self.V = PsdQuadratic(lifting_dim)
 
+        # Linear dynamics matrix in the lifted space
+        self.A = nn.Linear(lifting_dim, lifting_dim, bias=False)
+
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
@@ -108,6 +111,9 @@ class KoopmanMlpExtractor(nn.Module):
     def forward_critic(self, y):
         z = self.phi(y)
         return self.V(z)
+
+    def forward_lifted_dynamics(self, z):
+        return self.A(z)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """

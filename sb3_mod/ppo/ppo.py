@@ -205,12 +205,6 @@ class PPO(OnPolicyAlgorithm):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
             for rollout_data in self.rollout_buffer.get(self.batch_size):
-                print(type(self.rollout_buffer))
-                print(rollout_data.observations.shape)
-                print(rollout_data.next_observations.shape)
-                print(rollout_data.observations[0,:])
-                print(rollout_data.next_observations[0,:])
-                sys.exit()
 
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
@@ -264,7 +258,19 @@ class PPO(OnPolicyAlgorithm):
 
                 entropy_losses.append(entropy_loss.item())
 
-                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+                # Koopman loss encourages linearity in the lifted space
+                obs = rollout_data.observations
+                next_obs = rollout_data.next_observations
+                lifted_state = self.policy.mlp_extractor.phi(obs)
+                next_lifted_state = self.policy.mlp_extractor.phi(next_obs)
+
+                predicted_lifted_state = self.policy.mlp_extractor.forward_lifted_dynamics(lifted_state)
+
+                koopman_coef = 1e-2
+                koopman_loss = F.mse_loss(predicted_lifted_state, next_lifted_state)
+
+                # Total loss
+                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + koopman_coef * koopman_loss
 
                 # Calculate approximate form of reverse KL Divergence for early stopping
                 # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
