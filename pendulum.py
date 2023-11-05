@@ -22,7 +22,7 @@ from envs import HistoryWrapper
 MLP_BASELINE = False
 
 # Try to make things deterministic
-SEED = 1
+SEED = 0
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -58,7 +58,7 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    verbose=1, policy_kwargs={"lifting_dim": 16})
+                    verbose=1, policy_kwargs={"lifting_dim": 128})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -66,7 +66,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=300_000)
+    model.learn(total_timesteps=5_000)
 
     # Save the model
     model.save("trained_models/pendulum")

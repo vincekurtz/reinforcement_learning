@@ -35,23 +35,24 @@ class PsdQuadratic(nn.Module):
         super().__init__()
         self.input_size = input_size
 
-        # Parameterize Q = LL' where L is a lower triangular matrix. We only
-        # store variables for the non-zero elements of L
-        self.L_vars = nn.Parameter(
-            torch.randn(input_size*(input_size+1)//2), requires_grad=True)
-        self.tril_indices = torch.tril_indices(input_size, input_size).tolist()
+        # Parameterize Q = LL' with L a lower triangular matrix
+        self.L = nn.Parameter(torch.randn(input_size, input_size), 
+                              requires_grad=True)
+        self.mask = torch.triu(torch.ones(input_size, input_size, dtype=bool), 
+                               diagonal=1)
+        with torch.no_grad():
+            self.L.masked_fill_(self.mask, 0.0)
 
         self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
         self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
-        # Construct the lower triangular matrix L
-        L = torch.zeros(self.input_size, self.input_size).to(x.device)
-        L[self.tril_indices] = self.L_vars
+        # Mask out the zero elements of L
+        with torch.no_grad():
+            self.L.masked_fill_(self.mask, 0.0)
 
         # Compute the output of the quadratic function [batch_size, 1]
-        Q = L @ L.T
-        y = (x @ Q @ x.T).diag() + x @ self.b + self.c
+        y = (x @ self.L @ self.L.T @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
     
 class DiagonalQuadratic(nn.Module):
@@ -87,28 +88,39 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_vf = 1
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
-        self.lifting_function = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.Tanh())
+        self.phi = nn.Sequential(
+                nn.Linear(input_size + output_size, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
+        
+        self.phi2 = nn.Sequential(
+                nn.Linear(input_size, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
         
         # Policy is a linear map from the lifted space to actions
-        self.linear_feedback = nn.Sequential(
-            nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
-            nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
-            nn.Linear(lifting_dim, output_size))
+        self.K = nn.Linear(lifting_dim, output_size, bias=False)
+
+        self.K2 = nn.Linear(lifting_dim, output_size, bias=False)
 
         # Value function is quadratic in the lifted space
-        self.quadratic_value = PsdQuadratic(lifting_dim)
+        self.V = Quadratic(lifting_dim)
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
-    def forward_actor(self, x):
-        phi = self.lifting_function(x)
-        return self.linear_feedback(phi)
+    def forward_actor(self, y):
+        z2 = self.phi2(y)
+        u2 = self.K2(z2)
+        y2 = torch.cat((y, u2), dim=1)
+        z = self.phi(y2)
+        u = self.K(z)
+        return u
 
-    def forward_critic(self, x):
-        phi = self.lifting_function(x)
-        return self.quadratic_value(phi)
+    def forward_critic(self, y):
+        z2 = self.phi2(y)
+        u2 = self.K2(z2)
+        y2 = torch.cat((y, u2), dim=1)
+        z = self.phi(y2)
+        return self.V(z)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
