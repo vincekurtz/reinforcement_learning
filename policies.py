@@ -101,6 +101,9 @@ class KoopmanMlpExtractor(nn.Module):
         # Linear dynamics matrix in the lifted space
         self.A = nn.Linear(lifting_dim, lifting_dim, bias=False)
 
+        # Mapping from lifted space to observation space
+        self.C = nn.Linear(lifting_dim, input_size, bias=False)
+
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
@@ -114,6 +117,11 @@ class KoopmanMlpExtractor(nn.Module):
 
     def forward_lifted_dynamics(self, z):
         return self.A(z)
+
+    def predict_next_observation(self, y):
+        z = self.phi(y)
+        z_next = self.A(z)
+        return self.C(z_next)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """

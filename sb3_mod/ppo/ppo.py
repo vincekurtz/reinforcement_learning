@@ -269,9 +269,10 @@ class PPO(OnPolicyAlgorithm):
                 next_lifted_state = self.policy.mlp_extractor.phi(next_obs)
 
                 predicted_lifted_state = self.policy.mlp_extractor.forward_lifted_dynamics(lifted_state)
+                predicted_obs = self.policy.mlp_extractor.predict_next_observation(obs)
 
-                koopman_coef = 1e-2
                 koopman_loss = F.mse_loss(predicted_lifted_state, next_lifted_state)
+                koopman_loss += F.mse_loss(predicted_obs, next_obs)
                 koopman_losses.append(koopman_loss.item())
 
                 # Total loss
