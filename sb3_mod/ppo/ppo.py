@@ -48,6 +48,7 @@ class PPO(OnPolicyAlgorithm):
     :param normalize_advantage: Whether to normalize or not the advantage
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
+    :param koopman_coef: Koopman linearity coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
@@ -92,6 +93,7 @@ class PPO(OnPolicyAlgorithm):
         normalize_advantage: bool = True,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
+        koopman_coef: float = 0.5,
         max_grad_norm: float = 0.5,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
@@ -134,6 +136,7 @@ class PPO(OnPolicyAlgorithm):
                 spaces.MultiBinary,
             ),
         )
+        self.koopman_coef = koopman_coef
 
         # Sanity check, otherwise it will lead to noisy gradient and NaN
         # because of the advantage normalization
@@ -197,6 +200,7 @@ class PPO(OnPolicyAlgorithm):
 
         entropy_losses = []
         pg_losses, value_losses = [], []
+        koopman_losses = []
         clip_fractions = []
 
         continue_training = True
@@ -268,9 +272,10 @@ class PPO(OnPolicyAlgorithm):
 
                 koopman_coef = 1e-2
                 koopman_loss = F.mse_loss(predicted_lifted_state, next_lifted_state)
+                koopman_losses.append(koopman_loss.item())
 
                 # Total loss
-                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + koopman_coef * koopman_loss
+                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + self.koopman_coef * koopman_loss
 
                 # Calculate approximate form of reverse KL Divergence for early stopping
                 # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
@@ -304,6 +309,7 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/entropy_loss", np.mean(entropy_losses))
         self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
         self.logger.record("train/value_loss", np.mean(value_losses))
+        self.logger.record("train/koopman_loss", np.mean(koopman_losses))
         self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
         self.logger.record("train/loss", loss.item())
