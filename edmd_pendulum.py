@@ -458,12 +458,14 @@ if __name__=="__main__":
     model = PPO.load("trained_models/pendulum")
 
     # Gather data for EDMD
-    Z, Z_next, Y = gather_edmd_data(model, env, 
-            sample_length=50, 
-            num_samples=500)
+    #Z, Z_next, Y = gather_edmd_data(model, env, 
+    #        sample_length=50, 
+    #        num_samples=500)
 
-    # Fit an EDMD model
-    A, C = perform_edmd(Z, Z_next, Y)
+    ## Fit an EDMD model
+    #A, C = perform_edmd(Z, Z_next, Y)
+    A = model.policy.mlp_extractor.A.cpu().weight.detach().numpy().T
+    C = model.policy.mlp_extractor.C.cpu().weight.detach().numpy().T
 
     # Compare predictions in the lifted space
     #compare_lifted_state_trajectories(env, model, A, num_steps=100)
