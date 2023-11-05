@@ -89,37 +89,24 @@ class KoopmanMlpExtractor(nn.Module):
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
         self.phi = nn.Sequential(
-                nn.Linear(input_size + output_size, lifting_dim), nn.Tanh(),
-                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
-        
-        self.phi2 = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.Tanh(),
-                nn.Linear(lifting_dim, lifting_dim), nn.Tanh())
+                nn.Linear(input_size, lifting_dim), nn.ReLU(),
+                nn.Linear(lifting_dim, lifting_dim), nn.ReLU())
         
         # Policy is a linear map from the lifted space to actions
-        self.K = nn.Linear(lifting_dim, output_size, bias=False)
-
-        self.K2 = nn.Linear(lifting_dim, output_size, bias=False)
+        self.K = nn.Linear(lifting_dim, output_size)
 
         # Value function is quadratic in the lifted space
-        self.V = Quadratic(lifting_dim)
+        self.V = PsdQuadratic(lifting_dim)
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
     def forward_actor(self, y):
-        z2 = self.phi2(y)
-        u2 = self.K2(z2)
-        y2 = torch.cat((y, u2), dim=1)
-        z = self.phi(y2)
-        u = self.K(z)
-        return u
+        z = self.phi(y)
+        return self.K(z)
 
     def forward_critic(self, y):
-        z2 = self.phi2(y)
-        u2 = self.K2(z2)
-        y2 = torch.cat((y, u2), dim=1)
-        z = self.phi(y2)
+        z = self.phi(y)
         return self.V(z)
 
 class KoopmanPolicy(ActorCriticPolicy):

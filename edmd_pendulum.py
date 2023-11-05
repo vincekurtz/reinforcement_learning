@@ -66,7 +66,7 @@ def gather_edmd_data(model, env, sample_length=10, num_samples=100):
             i += 1
 
     # Compute the lifting Z = phi(Y)
-    phi = model.policy.mlp_extractor.lifting_function
+    phi = model.policy.mlp_extractor.phi
     with torch.no_grad():
         Y_torch = torch.from_numpy(Y).float().to(model.device)
         Y_next_torch = torch.from_numpy(Y_next).float().to(model.device)
@@ -198,7 +198,7 @@ def compare_lifted_state_trajectories(env, model, A, num_steps=100):
     plt.figure()
 
     # Get the lifting function
-    phi = model.policy.mlp_extractor.lifting_function
+    phi = model.policy.mlp_extractor.phi
 
     # Simulate a trajectory closed-loop
     obs, _ = env.reset()
@@ -246,7 +246,7 @@ def compare_trajectories(env, model, A, C, num_steps=100):
     plt.figure()
 
     # Get the lifting function
-    phi = model.policy.mlp_extractor.lifting_function
+    phi = model.policy.mlp_extractor.phi
 
     # Simulate a trajectory closed-loop
     obs, _ = env.reset()
@@ -302,7 +302,7 @@ def plot_koopman_vector_field(model, A, C, n=25, sim_start_state=None):
             plot it in red.
     """
     # Get the lifting function
-    phi = model.policy.mlp_extractor.lifting_function
+    phi = model.policy.mlp_extractor.phi
 
     # Sample initial states
     thetas = np.linspace(-np.pi, 2*np.pi, n)
