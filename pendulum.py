@@ -56,7 +56,7 @@ def train():
                     policy_kwargs=dict(net_arch=[32, 32]),
                     verbose=1)
     else:
-        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=3e-4,
+        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
                     verbose=1, policy_kwargs={"lifting_dim": 32})
 
@@ -66,7 +66,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=100_000)
+    model.learn(total_timesteps=1_000)
 
     # Save the model
     model.save("trained_models/pendulum")

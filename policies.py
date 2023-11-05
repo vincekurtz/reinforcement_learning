@@ -89,8 +89,8 @@ class KoopmanMlpExtractor(nn.Module):
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
         self.phi = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.ReLU(),
-                nn.Linear(lifting_dim, lifting_dim), nn.ReLU())
+                nn.Linear(input_size, lifting_dim), nn.GELU(),
+                nn.Linear(lifting_dim, lifting_dim), nn.GELU())
         
         # Policy is a linear map from the lifted space to actions
         self.K = nn.Linear(lifting_dim, output_size)
