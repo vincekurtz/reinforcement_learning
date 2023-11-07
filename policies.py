@@ -128,9 +128,9 @@ class KoopmanMlpExtractor(nn.Module):
         
         # Value function is just a vanilla MLP
         self.value_net = nn.Sequential(
-                nn.Linear(input_size, 256), nn.Tanh(),
-                nn.Linear(256, 256), nn.Tanh(),
-                nn.Linear(256, 1)
+                nn.Linear(input_size, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+                nn.Linear(lifting_dim, 1)
         )
 
     def forward(self, x):
