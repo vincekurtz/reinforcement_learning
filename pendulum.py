@@ -10,15 +10,15 @@
 
 import sys
 import gymnasium as gym
-#from stable_baselines3 import PPO
-#from stable_baselines3.common.utils import set_random_seed
-#from stable_baselines3.common.vec_env import DummyVecEnv
-#from stable_baselines3.common.monitor import Monitor
+from stable_baselines3 import PPO
+from stable_baselines3.common.utils import set_random_seed
+from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 
-from sb3_mod import PPO
-from sb3_mod.common.utils import set_random_seed
-from sb3_mod.common.vec_env import DummyVecEnv
-from sb3_mod.common.monitor import Monitor
+#from sb3_mod import PPO
+#from sb3_mod.common.utils import set_random_seed
+#from sb3_mod.common.vec_env import DummyVecEnv
+#from sb3_mod.common.monitor import Monitor
 
 from policies import KoopmanPolicy
 from envs import HistoryWrapper
@@ -27,7 +27,7 @@ from envs import HistoryWrapper
 MLP_BASELINE = False
 
 # Try to make things deterministic
-SEED = 0
+SEED = 2
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -56,23 +56,22 @@ def train():
     
     # set up the model (a.k.a. controller)
     if MLP_BASELINE:
-        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=3e-4,
+        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
                     policy_kwargs=dict(net_arch=[32, 32]),
                     verbose=1)
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    koopman_coef=1e3,
-                    verbose=1, policy_kwargs={"lifting_dim": 32})
+                    verbose=1, policy_kwargs={"lifting_dim": 128, "ortho_init": False})
 
     # Print how many parameters this thing has
-    num_params = sum(p.numel() for p in model.policy.parameters())
+    num_params = sum(p.numel() for p in model.policy.parameters() if p.requires_grad)
     print(f"Training a policy with {num_params} parameters")
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=150_000)
+    model.learn(total_timesteps=200_000)
 
     # Save the model
     model.save("trained_models/pendulum")
