@@ -73,6 +73,37 @@ class DiagonalQuadratic(nn.Module):
         y = (x @ torch.diag(self.Q) @ x.T).diag() + x @ self.b + self.c
         return y.unsqueeze(-1)
 
+class LiftedLinear(nn.Module):
+    """
+    A (learned) linear mapping that operates on a (frozen) lifting function of
+    the input,
+
+        y = K phi(x)
+
+    where phi is an MLP with random frozen weights mapping the input to some
+    high-dimensional space, and K is a learned feedback matrix. 
+    """
+    def __init__(self, input_size, output_size, lifting_size, bias=False):
+        super().__init__()
+
+        # Lifting function. Be careful to initialize these weight randomly
+        # and not with orthogonal initialization.
+        self.phi = nn.Sequential(
+                nn.Linear(input_size, lifting_size), nn.Tanh(),
+                nn.Linear(lifting_size, lifting_size), nn.Tanh(),
+        )
+        
+        # Freeze weights of phi
+        for param in self.phi.parameters():
+            param.requires_grad = False
+
+        # Linear mapping
+        self.K = nn.Linear(lifting_size, output_size, bias=bias)
+
+    def forward(self, x):
+        z = self.phi(x)
+        return self.K(z)
+
 class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
@@ -87,55 +118,27 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_pi = output_size
         self.latent_dim_vf = 1
 
-        # Lifting function maps to a higher-dimensional Koopman-invariant space
-        self.phi = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.Tanh(),
-                nn.Linear(lifting_dim, lifting_dim), nn.Tanh(),
+        # Policy maps input to output, and is composed of LiftedLinear blocks
+        self.policy_net = nn.Sequential(
+                LiftedLinear(input_size, input_size, lifting_dim),
+                LiftedLinear(input_size, input_size, lifting_dim),
+                LiftedLinear(input_size, output_size, lifting_dim)
         )
-        
-        # Freeze weights of phi
-        for param in self.phi.parameters():
-            param.requires_grad = False
 
-        # Policy is a linear map from the lifted space to actions
-        self.K1 = nn.Linear(lifting_dim, input_size, bias=False)
-        self.K2 = nn.Linear(lifting_dim, input_size, bias=False)
-        self.K3 = nn.Linear(lifting_dim, output_size, bias=False)
-
-        # Value function is quadratic in the lifted space
-        #self.V = Quadratic(lifting_dim)
-        self.V = nn.Sequential(
+        # Value function is just a vanilla MLP
+        self.value_net = nn.Sequential(
                 nn.Linear(input_size, 128), nn.Tanh(),
                 nn.Linear(128, 1)
         )
 
-        # Linear dynamics matrix in the lifted space
-        #self.A = nn.Linear(lifting_dim, lifting_dim, bias=False)
-
-        # Mapping from lifted space to observation space
-        #self.C = nn.Linear(lifting_dim, input_size, bias=False)
-
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
-    def forward_actor(self, y):
-        z1 = self.phi(y)
-        u1 = self.K1(z1)
-        z2 = self.phi(u1)
-        u2 = self.K2(z2)
-        z3 = self.phi(u2)
-        return self.K3(z3)
+    def forward_actor(self, x):
+        return self.policy_net(x)
 
-    def forward_critic(self, y):
-        return self.V(y)
-
-#    def forward_lifted_dynamics(self, z):
-#        return self.A(z)
-#
-#    def predict_next_observation(self, y):
-#        z = self.phi(y)
-#        z_next = self.A(z)
-#        return self.C(z_next)
+    def forward_critic(self, x):
+        return self.value_net(x)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
