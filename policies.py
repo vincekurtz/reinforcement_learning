@@ -108,7 +108,7 @@ class KoopmanMlpExtractor(nn.Module):
     """
     A custom neural net for both the policy and the value function.
     """
-    def __init__(self, input_size, output_size, lifting_dim):
+    def __init__(self, input_size, output_size, lifting_dim, num_layers):
         super().__init__()
 
         # The custom network must have these output dimensions as attributes
@@ -118,24 +118,29 @@ class KoopmanMlpExtractor(nn.Module):
         self.latent_dim_pi = output_size
         self.latent_dim_vf = 1
 
-        # Policy maps input to output, and is composed of LiftedLinear blocks
-        self.policy_net = nn.Sequential(
-                LiftedLinear(input_size, input_size, lifting_dim),
-                LiftedLinear(input_size, input_size, lifting_dim),
-                LiftedLinear(input_size, output_size, lifting_dim)
-        )
-
+        # Policy is a sequence of Hierarchically connected lifted linear maps
+        self.policy_layers = nn.ModuleList()
+        self.policy_layers.append(
+                LiftedLinear(input_size, output_size, lifting_dim))
+        for i in range(num_layers-1):
+            self.policy_layers.append(
+                LiftedLinear(input_size + output_size, output_size, lifting_dim))
+        
         # Value function is just a vanilla MLP
         self.value_net = nn.Sequential(
-                nn.Linear(input_size, 128), nn.Tanh(),
-                nn.Linear(128, 1)
+                nn.Linear(input_size, 256), nn.Tanh(),
+                nn.Linear(256, 256), nn.Tanh(),
+                nn.Linear(256, 1)
         )
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
     def forward_actor(self, x):
-        return self.policy_net(x)
+        y = self.policy_layers[0](x)
+        for layer in self.policy_layers[1:]:
+            y = layer(torch.cat((x, y), dim=1))
+        return y
 
     def forward_critic(self, x):
         return self.value_net(x)
@@ -147,21 +152,22 @@ class KoopmanPolicy(ActorCriticPolicy):
     directly.
     """
     def __init__(self, observation_space, action_space, lr_schedule,
-                 lifting_dim, *args, **kwargs):
+                 lifting_dim, num_layers, *args, **kwargs):
         self.lifting_dim = lifting_dim
+        self.num_layers = num_layers
         super().__init__(observation_space, action_space, lr_schedule, *args,
                 **kwargs)
 
     def _build_mlp_extractor(self):
         self.mlp_extractor = KoopmanMlpExtractor(
             self.features_dim, self.action_space.shape[0], 
-            self.lifting_dim)
+            self.lifting_dim, self.num_layers)
         
     def save(self, path):
         """
         Save the policy to disk, including some extra custom params. 
         """
-        super().save(path, include=["lifting_dim"])
+        super().save(path, include=["lifting_dim", "num_layers"])
 
 class ParallelLinear(nn.Module):
     """

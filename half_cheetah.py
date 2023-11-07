@@ -65,12 +65,14 @@ def train():
                     gae_lambda=0.92, gamma=0.98, learning_rate=2.0633e-5, 
                     max_grad_norm=0.8, n_epochs=20, n_steps=512, vf_coef=0.58096,
                     clip_range_vf=0.2,
-                    policy_kwargs=dict(log_std_init=-2, ortho_init=False, 
-                                   lifting_dim=256),
+                    policy_kwargs=dict(log_std_init=-2, 
+                                       ortho_init=False, 
+                                       lifting_dim=256,
+                                       num_layers=3),
                     tensorboard_log="/tmp/half_cheetah_tensorboard/")
 
     # Print how many parameters this thing has
-    num_params = sum(p.numel() for p in model.policy.parameters())
+    num_params = sum(p.numel() for p in model.policy.parameters() if p.requires_grad)
     print(f"Training a policy with {num_params} parameters")
     print(model.policy)
 
