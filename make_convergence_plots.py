@@ -67,14 +67,14 @@ def plot_learning_curve(log_dirs, label):
 
 
 if __name__=="__main__":
-    koopman_log_dirs = ["/tmp/pendulum_tensorboard/PPO_1",
-                "/tmp/pendulum_tensorboard/PPO_2",
-                "/tmp/pendulum_tensorboard/PPO_3"]
-    baseline_log_dirs = ["/tmp/pendulum_tensorboard/PPO_4",
-                         "/tmp/pendulum_tensorboard/PPO_5",
-                         "/tmp/pendulum_tensorboard/PPO_6"]
-    plot_learning_curve(koopman_log_dirs, "Quadratic Value Function")
-    plot_learning_curve(baseline_log_dirs, "Standard RL")
+    hierarchy_log_dirs = ["/tmp/pendulum_tensorboard/PPO_1",
+                          "/tmp/pendulum_tensorboard/PPO_5",
+                          "/tmp/pendulum_tensorboard/PPO_6"]
+    single_layer_log_dirs = ["/tmp/pendulum_tensorboard/PPO_2",
+                             "/tmp/pendulum_tensorboard/PPO_3",
+                             "/tmp/pendulum_tensorboard/PPO_4"]
+    plot_learning_curve(hierarchy_log_dirs, "Hierarchical 3x128")
+    plot_learning_curve(single_layer_log_dirs, "Single Layer 1x384")
 
     # Use exponential notation on x axis
     plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))

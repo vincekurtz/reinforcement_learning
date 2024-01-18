@@ -66,7 +66,7 @@ def gather_edmd_data(model, env, sample_length=10, num_samples=100):
             i += 1
 
     # Compute the lifting Z = phi(Y)
-    phi = model.policy.mlp_extractor.phi
+    phi = model.policy.mlp_extractor.policy_layers[-1].phi
     with torch.no_grad():
         Y_torch = torch.from_numpy(Y).float().to(model.device)
         Y_next_torch = torch.from_numpy(Y_next).float().to(model.device)
@@ -198,7 +198,7 @@ def compare_lifted_state_trajectories(env, model, A, num_steps=100):
     plt.figure()
 
     # Get the lifting function
-    phi = model.policy.mlp_extractor.phi
+    phi = model.policy.mlp_extractor.policy_layers[-1].phi
 
     # Simulate a trajectory closed-loop
     obs, _ = env.reset()
@@ -246,7 +246,7 @@ def compare_trajectories(env, model, A, C, num_steps=100):
     plt.figure()
 
     # Get the lifting function
-    phi = model.policy.mlp_extractor.phi
+    phi = model.policy.mlp_extractor.policy_layers[-1].phi
 
     # Simulate a trajectory closed-loop
     obs, _ = env.reset()
@@ -302,7 +302,11 @@ def plot_koopman_vector_field(model, A, C, n=25, sim_start_state=None):
             plot it in red.
     """
     # Get the lifting function
-    phi = model.policy.mlp_extractor.phi
+    phi = model.policy.mlp_extractor.policy_layers[-1].phi
+    K = model.policy.mlp_extractor.policy_layers[-1].K
+    print(len(model.policy.mlp_extractor.policy_layers))
+    print(K)
+    print(K.weight)
 
     # Sample initial states
     thetas = np.linspace(-np.pi, 2*np.pi, n)
@@ -391,7 +395,7 @@ def plot_vector_fields(model, env, A, C):
         A: The learned Koopman matrix
         C: The learned mapping from lifted state to observation
     """
-    start_state = [0.5, 0.0]  # start state for little trajectory visualizations
+    start_state = [3.1, 0.0]  # start state for little trajectory visualizations
 
     plt.figure()
     plt.subplot(2,2,1)
@@ -474,7 +478,13 @@ if __name__=="__main__":
     #compare_trajectories(env, model, A, C, num_steps=100)
 
     # Plot the eigenvalues of the learned Koopman operator approximation
-    #plot_eigenvalues(A)
+    plot_eigenvalues(A)
+
+    # Plot the singular values
+    plt.figure()
+    U, S, Vh = np.linalg.svd(A)
+    print(S)
+    plt.plot(np.sort(S)[::-1], 'ro')
         
     # Make vector fields to compare the learned and actual dynamics
     plot_vector_fields(model, env, A, C)

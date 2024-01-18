@@ -27,7 +27,7 @@ from envs import HistoryWrapper
 MLP_BASELINE = False
 
 # Try to make things deterministic
-SEED = 2
+SEED = 1
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -65,7 +65,7 @@ def train():
                     tensorboard_log="/tmp/pendulum_tensorboard/",
                     verbose=1, policy_kwargs={
                         "lifting_dim": 128, 
-                        "num_layers": 3,
+                        "num_layers": 1,
                         "ortho_init": False})
 
     # Print how many parameters this thing has
@@ -74,7 +74,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=200_000)
+    model.learn(total_timesteps=100_000)
 
     # Save the model
     model.save("trained_models/pendulum")

@@ -18,7 +18,7 @@ from stable_baselines3.common.monitor import Monitor
 from policies import KoopmanPolicy
 
 # Whether to use a standard MLP as a baseline
-MLP_BASELINE = False
+MLP_BASELINE = True
 
 # Try to make things deterministic
 SEED = 1
@@ -52,7 +52,7 @@ def train():
         model = PPO(KoopmanPolicy, vec_env, 
                     tensorboard_log="/tmp/humanoid_tensorboard/",
                     verbose=1, policy_kwargs={
-                        "lifting_dim": 512,
+                        "lifting_dim": 1024,
                         "num_layers": 3,
                         "ortho_init": False})
 
@@ -62,7 +62,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=1_000_000)
+    model.learn(total_timesteps=90_000_000)
 
     # Save the model
     model.save("trained_models/humanoid")

@@ -104,8 +104,9 @@ def plot_value_function(model, history_length=1):
         Handles conversion between torch and numpy.
         """
         obs = torch.from_numpy(obs).float().to(model.device)
-        value_hidden = model.policy.mlp_extractor.forward_critic(obs)
-        value = model.policy.value_net(value_hidden)
+        #value_hidden = model.policy.mlp_extractor.forward_critic(obs)
+        #value = model.policy.value_net(value_hidden)
+        value = model.policy.mlp_extractor.forward_actor(obs)
         return value.cpu().numpy()
     
     # Sample a bunch of initial states
