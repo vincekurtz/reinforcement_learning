@@ -39,7 +39,7 @@ def make_environment(render_mode=None):
     testing.
     """
     max_torque = 2.0
-    env = gym.make("Pendulum-v1", render_mode=render_mode)
+    env = gym.make("Pendulum-v1", render_mode=render_mode, g=10.0)
     env.unwrapped.max_torque = max_torque
     env.unwrapped.action_space.low = -max_torque
     env.unwrapped.action_space.high = max_torque
