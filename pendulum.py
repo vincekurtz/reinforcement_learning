@@ -20,6 +20,9 @@ from sb3_mod.common.utils import set_random_seed
 from sb3_mod.common.vec_env import DummyVecEnv
 from sb3_mod.common.monitor import Monitor
 
+import torch
+import numpy as np
+
 from policies import KoopmanPolicy
 from envs import HistoryWrapper
 
@@ -85,9 +88,20 @@ def test():
     model = PPO.load("trained_models/pendulum")
 
     obs = vec_env.reset()
+
+    z = model.policy.mlp_extractor.phi(torch.Tensor(obs).to(model.device))
+    z_next = model.policy.mlp_extractor.forward_lifted_dynamics(z)
     for i in range(1000):
         action, _ = model.predict(obs, deterministic=True)
         obs, _, _, _ = vec_env.step(action)
+
+        # Compute the error in the lifted dynamics
+        z = model.policy.mlp_extractor.phi(torch.Tensor(obs).to(model.device))
+        err = z_next - z
+        err = torch.norm(err, p=2, dim=1).mean()
+        z_next = model.policy.mlp_extractor.forward_lifted_dynamics(z)
+        print(f"Error in lifted dynamics: {err:.3f}")
+
         vec_env.render("human")
 
 if __name__=="__main__":
