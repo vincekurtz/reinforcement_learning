@@ -61,7 +61,7 @@ def train():
     if MLP_BASELINE:
         model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=3e-4,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    policy_kwargs=dict(net_arch=[32, 32]),
+                    policy_kwargs=dict(net_arch=[256, 256], activation_fn=torch.nn.GELU),
                     verbose=1)
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,

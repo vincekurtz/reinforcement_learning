@@ -14,12 +14,10 @@ class Quadratic(nn.Module):
         super().__init__()
         self.Q = nn.Parameter(torch.randn(input_size, input_size), 
                               requires_grad=True)
-        self.b = nn.Parameter(torch.randn(input_size), requires_grad=True)
-        self.c = nn.Parameter(torch.randn(1), requires_grad=True)
 
     def forward(self, x):
         # Compute the output of the quadratic function [batch_size, 1]
-        y = (x @ self.Q @ x.T).diag() + x @ self.b + self.c
+        y = (x @ self.Q @ x.T).diag()
         return y.unsqueeze(-1)
     
 class PsdQuadratic(nn.Module):
@@ -93,7 +91,7 @@ class KoopmanMlpExtractor(nn.Module):
                 nn.Linear(lifting_dim, lifting_dim), nn.GELU())
         
         # Policy is a linear map from the lifted space to actions
-        self.K = nn.Linear(lifting_dim, output_size)
+        self.K = nn.Linear(lifting_dim, output_size, bias=False)
 
         # Value function is quadratic in the lifted space
         self.V = Quadratic(lifting_dim)
