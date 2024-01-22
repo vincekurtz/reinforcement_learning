@@ -63,8 +63,8 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
-                    koopman_coef=0.5,
-                    verbose=1, policy_kwargs={"lifting_dim": 32})
+                    koopman_coef=10.0,
+                    verbose=1, policy_kwargs={"lifting_dim": 256})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -72,7 +72,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=150_000)
+    model.learn(total_timesteps=100_000)
 
     # Save the model
     model.save("trained_models/pendulum")
