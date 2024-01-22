@@ -116,10 +116,6 @@ class KoopmanMlpExtractor(nn.Module):
     def forward_lifted_dynamics(self, z):
         return self.A(z)
 
-    # def predict_next_observation(self, y):
-    #     z = self.phi(y)
-    #     z_next = self.A(z)
-    #     return self.C(z_next)
 
 class KoopmanPolicy(ActorCriticPolicy):
     """
