@@ -90,22 +90,25 @@ def test():
     vec_env = make_environment(render_mode="human")
     model = PPO.load("trained_models/pendulum")
 
-    obs = vec_env.reset()
+    def predict_next_obs(obs):
+        """Helper function to predict the next observation"""
+        obs_th = torch.Tensor(obs).to(model.device)
+        obs_pred_th = model.policy.mlp_extractor.predict_next_observation(obs_th)
+        obs_pred = obs_pred_th.cpu().detach().numpy()
+        return obs_pred
 
-    z = model.policy.mlp_extractor.phi(torch.Tensor(obs).to(model.device))
-    z_next = model.policy.mlp_extractor.forward_lifted_dynamics(z)
+    obs = vec_env.reset()
+    obs_pred = predict_next_obs(obs)
     for i in range(1000):
         action, _ = model.predict(obs, deterministic=True)
         obs, _, _, _ = vec_env.step(action)
-
-        # Compute the error in the lifted dynamics
-        z = model.policy.mlp_extractor.phi(torch.Tensor(obs).to(model.device))
-        err = z_next - z
-        err = torch.norm(err, p=2, dim=1).mean()
-        z_next = model.policy.mlp_extractor.forward_lifted_dynamics(z)
-        print(f"Error in lifted dynamics: {err:.3f}")
-
         vec_env.render("human")
+
+        # Compute the error in predicting the next observation
+        prediction_error = np.linalg.norm(obs - obs_pred)
+        print(f"Prediction error: {prediction_error:.3f}")
+        obs_pred = predict_next_obs(obs)
+
 
 if __name__=="__main__":
     # Must run with --train or --test

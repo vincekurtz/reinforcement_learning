@@ -10,15 +10,23 @@
 
 import sys
 import gymnasium as gym
-from stable_baselines3 import PPO
-from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.monitor import Monitor
+import torch
 
 from policies import KoopmanPolicy
 
 # Whether to use a standard MLP as a baseline
-MLP_BASELINE = True
+MLP_BASELINE = False
+
+if MLP_BASELINE:
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.utils import set_random_seed
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+    from stable_baselines3.common.monitor import Monitor
+else:
+    from sb3_mod import PPO
+    from sb3_mod.common.utils import set_random_seed
+    from sb3_mod.common.vec_env import DummyVecEnv, VecNormalize
+    from sb3_mod.common.monitor import Monitor
 
 # Try to make things deterministic
 SEED = 1
@@ -29,11 +37,12 @@ def make_environment(render_mode=None):
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
-    env = gym.make("Humanoid-v4", render_mode=render_mode)
+    env = gym.make("HumanoidStandup-v4", render_mode=render_mode)
     env.action_space.seed(SEED)
     env = Monitor(env)
     vec_env = DummyVecEnv([lambda: env])
     vec_env.seed(SEED)
+    vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=True)
     return vec_env
 
 def train():
@@ -44,14 +53,38 @@ def train():
     
     if MLP_BASELINE:
         model = PPO("MlpPolicy", vec_env, 
+                    batch_size=32,
+                    n_steps=512,
+                    gamma=0.99,
+                    learning_rate=2.6e-5,
+                    ent_coef=3.62e-6,
+                    clip_range=0.3,
+                    n_epochs=20,
+                    gae_lambda=0.9,
+                    max_grad_norm=0.7,
+                    vf_coef=0.43,
                     policy_kwargs=dict(
-                        net_arch=dict(pi=[1024,1024], vf=[1024,1024])),
+                        log_std_init=-2,
+                        ortho_init=False,
+                        net_arch=dict(pi=[256, 256], vf=[256, 256], 
+                                      activation_fn=torch.nn.GELU)),
                     tensorboard_log="/tmp/humanoid_tensorboard/",
                     verbose=1)
     else:
         model = PPO(KoopmanPolicy, vec_env, 
+                    batch_size=32,
+                    n_steps=512,
+                    gamma=0.99,
+                    learning_rate=3e-5,
+                    ent_coef=1e-4,
+                    clip_range=0.3,
+                    n_epochs=20,
+                    gae_lambda=0.9,
+                    max_grad_norm=0.7,
+                    vf_coef=0.5,
                     tensorboard_log="/tmp/humanoid_tensorboard/",
-                    verbose=1, policy_kwargs={"lifting_dim": 1024})
+                    koopman_coef=1.0,
+                    verbose=1, policy_kwargs={"lifting_dim": 256})
 
     # Print how many parameters this thing has
     num_params = sum(p.numel() for p in model.policy.parameters())
@@ -59,7 +92,7 @@ def train():
     print(model.policy)
 
     # Do the learning
-    model.learn(total_timesteps=2_000_000)
+    model.learn(total_timesteps=1_000_000)
 
     # Save the model
     model.save("trained_models/humanoid")
