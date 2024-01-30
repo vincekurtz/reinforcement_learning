@@ -12,7 +12,7 @@ import sys
 import gymnasium as gym
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = False
+MLP_BASELINE = True
 
 if MLP_BASELINE:
     from stable_baselines3 import PPO
@@ -33,7 +33,7 @@ from envs import HistoryWrapper
 
 
 # Try to make things deterministic
-SEED = 0
+SEED = 2
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -62,7 +62,7 @@ def train():
     
     # set up the model (a.k.a. controller)
     if MLP_BASELINE:
-        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=3e-4,
+        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/pendulum_tensorboard/",
                     policy_kwargs=dict(net_arch=[256, 256], activation_fn=torch.nn.GELU),
                     verbose=1)

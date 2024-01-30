@@ -67,12 +67,12 @@ def plot_learning_curve(log_dirs, label):
 
 
 if __name__=="__main__":
-    koopman_log_dirs = ["/tmp/pendulum_tensorboard/PPO_18",
-                "/tmp/pendulum_tensorboard/PPO_19",
-                "/tmp/pendulum_tensorboard/PPO_20"]
-    baseline_log_dirs = ["/tmp/pendulum_tensorboard/PPO_15",
-                         "/tmp/pendulum_tensorboard/PPO_16",
-                         "/tmp/pendulum_tensorboard/PPO_17"]
+    koopman_log_dirs = ["/tmp/pendulum_tensorboard/PPO_1",
+                "/tmp/pendulum_tensorboard/PPO_2",
+                "/tmp/pendulum_tensorboard/PPO_3"]
+    baseline_log_dirs = ["/tmp/pendulum_tensorboard/PPO_4",
+                         "/tmp/pendulum_tensorboard/PPO_5",
+                         "/tmp/pendulum_tensorboard/PPO_6"]
     plot_learning_curve(koopman_log_dirs, "Koopman RL")
     plot_learning_curve(baseline_log_dirs, "Standard RL")
 
