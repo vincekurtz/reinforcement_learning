@@ -12,7 +12,7 @@ import sys
 import gymnasium as gym
 
 # Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
-MLP_BASELINE = True
+MLP_BASELINE = False
 
 if MLP_BASELINE:
     from stable_baselines3 import PPO
@@ -27,13 +27,14 @@ else:
 
 import torch
 import numpy as np
+import pickle
 
 from policies import KoopmanPolicy
 from envs import HistoryWrapper
 
 
 # Try to make things deterministic
-SEED = 2
+SEED = 0
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment(render_mode=None):
@@ -41,7 +42,7 @@ def make_environment(render_mode=None):
     Set up the gym environment (a.k.a. plant). Used for both training and
     testing.
     """
-    max_torque = 2.0
+    max_torque = 1.0
     env = gym.make("Pendulum-v1", render_mode=render_mode, g=10.0)
     env.unwrapped.max_torque = max_torque
     env.unwrapped.action_space.low = -max_torque
@@ -96,10 +97,14 @@ def test():
         obs_pred_th = model.policy.mlp_extractor.predict_next_observation(obs_th)
         obs_pred = obs_pred_th.cpu().detach().numpy()
         return obs_pred
+    
+    prediction_errors = []
 
-    obs = vec_env.reset()
+    vec_env.reset()
+    vec_env.envs[0].unwrapped.state = np.array([3.8, 0.0])  # set initial state
+    obs = np.array([vec_env.envs[0].unwrapped._get_obs()])
     obs_pred = predict_next_obs(obs)
-    for i in range(1000):
+    for i in range(199):
         action, _ = model.predict(obs, deterministic=True)
         obs, _, _, _ = vec_env.step(action)
         vec_env.render("human")
@@ -107,7 +112,13 @@ def test():
         # Compute the error in predicting the next observation
         prediction_error = np.linalg.norm(obs - obs_pred)
         print(f"Prediction error: {prediction_error:.3f}")
+        prediction_errors.append(prediction_error)
         obs_pred = predict_next_obs(obs)
+
+    # Save the prediction errors to disk
+    prediction_errors = np.array(prediction_errors)
+    with open("data/prediction_errors.pkl", "wb") as f:
+        pickle.dump(prediction_errors, f)
 
 
 if __name__=="__main__":
