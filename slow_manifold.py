@@ -65,7 +65,6 @@ def simulate(policy_fcn = lambda obs: np.array([[0.0]]), num_traj = 1):
     plt.ylabel("x2")
     plt.xlim(-1, 1)
     plt.ylim(-1, 1)
-    plt.show()
 
 def train():
     """
@@ -105,7 +104,7 @@ def test():
 
 def plot_lifting_function():
     """
-    Make a little color plot of the (1d) lifting function.
+    Make a little plot of a slice of the (1d) lifting function.
     """
     # Assumes this is trained with koopman model and lifting_dim=1
     model = PPO.load("trained_models/slow_manifold")
@@ -124,11 +123,42 @@ def plot_lifting_function():
     plt.plot(x1, y)
     plt.xlabel("x1")
     plt.ylabel("φ")
-    plt.show()
+
+def plot_lifting_function_2d():
+    """
+    Make a contour plot of the lifting function.
+    """
+    # Assumes this is trained with koopman model and lifting_dim=1
+    model = PPO.load("trained_models/slow_manifold")
+
+    x1 = np.linspace(-1, 1, 100)
+    x2 = np.linspace(-1, 1, 100)
+    X1, X2 = np.meshgrid(x1, x2)
+    Y = np.zeros_like(X1)
+    for i in range(100):
+        for j in range(100):
+            obs = np.array([[X1[i, j], X2[i, j]]])
+            obs = torch.tensor(obs, dtype=torch.float32).to(model.device)
+            phi = model.policy.mlp_extractor.phi(obs)
+            phi = phi.detach().cpu().numpy()
+            Y[i, j] = phi[0, 0]  
+
+            #Y[i, j] = obs[0,0]**2  # DEBUG: this is what it should look like
+            
+
+    plt.contourf(X1, X2, Y)
+    plt.colorbar()
+
+    plt.xlabel("x1")
+    plt.ylabel("x2")
 
 if __name__=="__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "train":
         train()
     else:
+        plot_lifting_function_2d()
+        plt.figure()
         plot_lifting_function()
-        #test()
+        plt.figure()
+        test()
+        plt.show()

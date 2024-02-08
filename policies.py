@@ -96,7 +96,6 @@ class KoopmanMlpExtractor(nn.Module):
 
         # Value function is quadratic in the lifted space
         self.V = Quadratic(nz)
-        # self.V = nn.Linear(lifting_dim, 1)
 
         # Linear dynamics matrix in the lifted space
         self.A = nn.Linear(nz, nz, bias=False)
