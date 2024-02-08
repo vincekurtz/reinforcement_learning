@@ -81,8 +81,8 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/slow_manifold_tensorboard/",
-                    koopman_coef=10.0,
-                    verbose=1, policy_kwargs={"lifting_dim": 3})
+                    koopman_coef=100.0,
+                    verbose=1, policy_kwargs={"lifting_dim": 1})
     print(model.policy)
 
     model.learn(total_timesteps=100_000)
@@ -103,9 +103,32 @@ def test():
     #simulate(num_traj=10)
     simulate(policy, num_traj=10)
 
+def plot_lifting_function():
+    """
+    Make a little color plot of the (1d) lifting function.
+    """
+    # Assumes this is trained with koopman model and lifting_dim=1
+    model = PPO.load("trained_models/slow_manifold")
+
+    x1 = np.linspace(-1, 1, 100)
+    y = np.zeros_like(x1)
+    for i in range(100):
+        obs = np.array([[x1[i], 0.0]])
+        obs = torch.tensor(obs, dtype=torch.float32).to(model.device)
+        phi = model.policy.mlp_extractor.phi(obs)
+        phi = phi.detach().cpu().numpy()
+        y[i] = phi[0, 0]  
+            
+        #y[i] = obs[0,0]**2  # DEBUG: this is what it should look like
+
+    plt.plot(x1, y)
+    plt.xlabel("x1")
+    plt.ylabel("φ")
+    plt.show()
 
 if __name__=="__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "train":
         train()
     else:
-        test()
+        plot_lifting_function()
+        #test()
