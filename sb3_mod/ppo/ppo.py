@@ -5,6 +5,7 @@ import numpy as np
 import torch as th
 from gymnasium import spaces
 from torch.nn import functional as F
+import torch
 
 from sb3_mod.common.buffers import RolloutBuffer
 from sb3_mod.common.on_policy_algorithm import OnPolicyAlgorithm
@@ -265,14 +266,16 @@ class PPO(OnPolicyAlgorithm):
                 # Koopman loss encourages linearity in the lifted space
                 obs = rollout_data.observations
                 next_obs = rollout_data.next_observations
-                lifted_state = self.policy.mlp_extractor.phi(obs)
-                next_lifted_state = self.policy.mlp_extractor.phi(next_obs)
+                lifted_state = torch.cat(
+                    (obs, self.policy.mlp_extractor.phi(obs)), 1)
+                next_lifted_state = torch.cat(
+                    (next_obs, self.policy.mlp_extractor.phi(next_obs)), 1)
 
                 predicted_lifted_state = self.policy.mlp_extractor.forward_lifted_dynamics(lifted_state)
-                predicted_obs = self.policy.mlp_extractor.predict_next_observation(obs)
+                #predicted_obs = self.policy.mlp_extractor.predict_next_observation(obs)
 
                 koopman_loss = F.mse_loss(predicted_lifted_state, next_lifted_state)
-                koopman_loss += F.l1_loss(predicted_obs, next_obs)
+                #koopman_loss += F.l1_loss(predicted_obs, next_obs)
                 koopman_losses.append(koopman_loss.item())
 
                 # Total loss

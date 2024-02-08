@@ -77,6 +77,7 @@ class KoopmanMlpExtractor(nn.Module):
     """
     def __init__(self, input_size, output_size, lifting_dim):
         super().__init__()
+        nz = lifting_dim + input_size
 
         # The custom network must have these output dimensions as attributes
         # with these names. The PPO implementation adds an additional linear
@@ -87,40 +88,38 @@ class KoopmanMlpExtractor(nn.Module):
 
         # Lifting function maps to a higher-dimensional Koopman-invariant space
         self.phi = nn.Sequential(
-                nn.Linear(input_size, lifting_dim), nn.GELU(),
-                nn.Linear(lifting_dim, lifting_dim), nn.GELU())
+                nn.Linear(input_size, 4*lifting_dim), nn.GELU(),
+                nn.Linear(4*lifting_dim, lifting_dim), nn.GELU())
         
         # Policy is a linear map from the lifted space to actions
-        self.K = nn.Linear(lifting_dim, output_size, bias=False)
+        self.K = nn.Linear(nz, output_size, bias=False)
 
         # Value function is quadratic in the lifted space
-        self.V = Quadratic(lifting_dim)
+        self.V = Quadratic(nz)
         # self.V = nn.Linear(lifting_dim, 1)
 
         # Linear dynamics matrix in the lifted space
-        self.A = nn.Linear(lifting_dim, lifting_dim, bias=False)
-
-        # Mapping from lifted space to observation space
-        self.C = nn.Linear(lifting_dim, input_size, bias=True)
+        self.A = nn.Linear(nz, nz, bias=False)
 
     def forward(self, x):
         return self.forward_actor(x), self.forward_critic(x)
 
     def forward_actor(self, y):
-        z = self.phi(y)
+        z = torch.cat((y, self.phi(y)), 1)
         return self.K(z)
 
     def forward_critic(self, y):
-        z = self.phi(y)
+        z = torch.cat((y, self.phi(y)), 1)
         return self.V(z)
 
     def forward_lifted_dynamics(self, z):
         return self.A(z)
     
-    def predict_next_observation(self, y):
-        z = self.phi(y)
-        z_next = self.A(z)
-        return self.C(z_next)
+    #def predict_next_observation(self, y):
+    #    z = torch.cat((y, self.phi(y)), 1)
+    #    z_next = self.A(z)
+    #    y_next = z_next[:, :self.input_size]
+    #    return y_next
 
 
 class KoopmanPolicy(ActorCriticPolicy):

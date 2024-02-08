@@ -82,7 +82,7 @@ def train():
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/slow_manifold_tensorboard/",
                     koopman_coef=10.0,
-                    verbose=1, policy_kwargs={"lifting_dim": 64})
+                    verbose=1, policy_kwargs={"lifting_dim": 3})
     print(model.policy)
 
     model.learn(total_timesteps=100_000)
