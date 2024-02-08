@@ -1,4 +1,4 @@
-gymnasium
+gymnasium[classic-control]
 matplotlib
 stable_baselines3
 numpy
