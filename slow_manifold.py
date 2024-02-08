@@ -9,11 +9,19 @@
 import sys
 import gymnasium as gym
 
-from stable_baselines3 import PPO
-from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.monitor import Monitor
+# Whether to run the baseline MLP implementation from stable-baselines3 rl zoo
+MLP_BASELINE = False
 
+if MLP_BASELINE:
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.utils import set_random_seed
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from stable_baselines3.common.monitor import Monitor
+else:
+    from sb3_mod import PPO
+    from sb3_mod.common.utils import set_random_seed
+    from sb3_mod.common.vec_env import DummyVecEnv
+    from sb3_mod.common.monitor import Monitor
 
 import torch
 import numpy as np
@@ -65,10 +73,16 @@ def train():
     """
     vec_env = make_environment()
 
-    model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=1e-3,
-                tensorboard_log="/tmp/slow_manifold_tensorboard/",
-                policy_kwargs=dict(net_arch=[64, 64]),
-                verbose=1)
+    if MLP_BASELINE:
+        model = PPO("MlpPolicy", vec_env, gamma=0.98, learning_rate=1e-3,
+                    tensorboard_log="/tmp/slow_manifold_tensorboard/",
+                    policy_kwargs=dict(net_arch=[64, 64], activation_fn=torch.nn.GELU),
+                    verbose=1)
+    else:
+        model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
+                    tensorboard_log="/tmp/slow_manifold_tensorboard/",
+                    koopman_coef=10.0,
+                    verbose=1, policy_kwargs={"lifting_dim": 64})
     print(model.policy)
 
     model.learn(total_timesteps=100_000)
