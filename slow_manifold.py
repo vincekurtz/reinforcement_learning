@@ -36,7 +36,7 @@ SEED = 0
 set_random_seed(SEED, using_cuda=True)
 
 def make_environment():
-    env = SlowManifoldEnv(mu=-0.5, lam=-0.1, dt=5e-2)
+    env = SlowManifoldEnv(mu=-0.1, lam=-1.0, dt=5e-2)
     env.action_space.seed(SEED)
 
     env = Monitor(TimeLimit(OrderEnforcing(PassiveEnvChecker(env)), max_episode_steps=200))
@@ -80,7 +80,8 @@ def train():
     else:
         model = PPO(KoopmanPolicy, vec_env, gamma=0.98, learning_rate=1e-3,
                     tensorboard_log="/tmp/slow_manifold_tensorboard/",
-                    koopman_coef=100.0,
+                    koopman_coef=1.0,
+                    ent_coef=0.0,
                     verbose=1, policy_kwargs={"lifting_dim": 1})
     print(model.policy)
 
