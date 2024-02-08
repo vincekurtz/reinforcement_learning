@@ -39,10 +39,11 @@ class SlowManifoldEnv(gym.Env):
         x1_dot = self.mu * x1
         x2_dot = self.lam * (x2 - x1**2) + u
         self.state = np.array([x1 + x1_dot * self.dt, 
-                               x2 + x2_dot * self.dt])
+                               x2 + x2_dot * self.dt], 
+                               dtype=np.float32)
 
         # Compute the cost to drive the system to the origin
-        cost = x1**2 + x2**2 + u**2
+        cost = 10*x1**2 + 10*x2**2 + u**2
 
         return self._get_obs(), -cost, False, False, {}
 
