@@ -20,7 +20,7 @@ class SlowManifoldEnv(gym.Env):
         self.dt = dt
 
         x_max = 1.0
-        u_max = 0.1
+        u_max = 1.0
         self.action_space = spaces.Box(
             low=-u_max, high=u_max, shape=(1,), dtype=np.float32)
         self.observation_space = spaces.Box(
