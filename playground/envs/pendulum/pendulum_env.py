@@ -128,8 +128,7 @@ class PendulumSwingupEnv(PipelineEnv):
     def _compute_obs(self, data: mjx.Data, info: Dict[str, Any]) -> jax.Array:
         """Compute an observation."""
         theta = data.qpos[0]
-        # N.B. we use cos(theta) + 1 so the observation is zero at the goal
-        obs = jnp.stack((jnp.cos(theta) + 1, jnp.sin(theta), data.qvel[0]))
+        obs = jnp.stack((jnp.cos(theta), jnp.sin(theta), data.qvel[0]))
         return obs
 
     def _compute_reward(
@@ -138,15 +137,24 @@ class PendulumSwingupEnv(PipelineEnv):
         """Computes the reward for the current environment state.
 
         Returns:
-            reward (shape=(1,)): the reward, maximized at qpos[0] = np.pi.
+            reward (shape=(1,)): the reward, maximized at qpos[0] = pi.
         """
-        y = self._compute_obs(data, info)
-        u = data.ctrl
+        theta = data.qpos[0] - jnp.pi
+        theta_dot = data.qvel[0]
+        tau = data.ctrl[0]
 
-        ly = jnp.einsum("ij,...i,...j->...", self.Q, y, y)
-        # ly = self.config.theta_cost_weight * (data.qpos[0] - jnp.pi) ** 2
-        # ly += self.config.theta_dot_cost_weight * data.qvel[0] ** 2
-        lu = jnp.einsum("ij,...i,...j->...", self.R, u, u)
-        cost = ly + lu
+        # Compute a normalized angle error (upright is zero)
+        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
 
-        return -cost
+        # Compute the reward
+        theta_cost = jnp.square(theta_err_normalized).sum()
+        theta_dot_cost = jnp.square(theta_dot).sum()
+        control_cost = jnp.square(tau).sum()
+
+        total_reward = (
+            -self.config.theta_cost_weight * theta_cost
+            - self.config.theta_dot_cost_weight * theta_dot_cost
+            - self.config.control_cost_weight * control_cost
+        )
+
+        return total_reward
