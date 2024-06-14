@@ -6,7 +6,6 @@ import jax.numpy as jnp
 import pytest
 from brax.training import distribution
 from brax.training.agents.ppo.networks import PPONetworks
-from brax.training.types import Params
 
 from playground.architectures import MLP
 from playground.envs.pendulum.pendulum_env import PendulumSwingupEnv

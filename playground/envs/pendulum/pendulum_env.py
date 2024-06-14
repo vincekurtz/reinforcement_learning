@@ -158,3 +158,13 @@ class PendulumSwingupEnv(PipelineEnv):
         )
 
         return total_reward
+
+    @property
+    def observation_size(self) -> int:
+        """Returns the size of the observation space."""
+        return 3
+
+    @property
+    def action_size(self) -> int:
+        """Returns the size of the action space."""
+        return 1
