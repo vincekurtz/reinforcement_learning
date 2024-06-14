@@ -1,9 +1,12 @@
+from datetime import datetime
+
 import flax.linen as nn
 import jax
 import jax.flatten_util
 import jax.numpy as jnp
 from brax.envs.base import PipelineEnv
 from flax import struct
+from tensorboardX import SummaryWriter
 
 
 @struct.dataclass
@@ -43,6 +46,7 @@ class BoltzmannPolicySearch:
         env: PipelineEnv,
         policy: nn.Module,
         options: BoltzmannPolicySearchOptions,
+        tensorboard_logdir: str = None,
         seed: int = 0,
     ):
         """Initialize the Boltzmann policy search algorithm.
@@ -51,6 +55,7 @@ class BoltzmannPolicySearch:
             env: The environment to train on.
             policy: The policy module to train, maps observations to actions.
             options: The hyperparameters for the algorithm.
+            tensorboard_logdir: The directory to save tensorboard logs to.
             seed: The random seed to use for parameter initialization.
         """
         self.env = env
@@ -74,6 +79,34 @@ class BoltzmannPolicySearch:
         flat_params, self.unravel = jax.flatten_util.ravel_pytree(init_params)
         self.num_params = len(flat_params)
         self.initial_parameter_vector = flat_params
+
+        # Set up tensorboard logging
+        if tensorboard_logdir is not None:
+            logdir = tensorboard_logdir
+        else:
+            logdir = f"/tmp/rl_playground/bps_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        print("Setting up tensorboard logging at", logdir)
+        self.tb_writer = SummaryWriter(logdir)
+
+    def log_eval_data(self, info: dict, iteration: int):
+        """Log evaluation info to tensorboard.
+
+        Args:
+            info: A dictionary of evaluation info.
+            iteration: The current training iteration.
+        """
+        # Write stuff to tensorboard
+        for key, value in info.items():
+            if isinstance(value, jax.Array):
+                value = float(value)
+            self.tb_writer.add_scalar(key, value, iteration)
+        self.tb_writer.flush()
+
+        # Print a summary
+        elapsed = datetime.now() - self.start_time
+        print(
+            f"  Iter: {iteration}, Reward: {info['mean_reward']:.2f}, Time: {elapsed}"
+        )
 
     def rollout(self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey):
         """Roll out the policy with a given set of parameters.
@@ -141,22 +174,26 @@ class BoltzmannPolicySearch:
         info = {"mean_reward": mean_reward, "std_reward": std_reward}
         return param_vector, info
 
-    def train(self, iterations: int, seed: int = 0):
+    def train(self, iterations: int, num_evals: int, seed: int = 0):
         """Run the main training loop.
 
         Args:
             iterations: The number of training iterations to run.
+            num_evals: The number of times to print stuff out.
             seed: The random seed to use for training.
         """
         rng = jax.random.PRNGKey(seed)
+        self.start_time = datetime.now()
+
         param_vector = self.initial_parameter_vector
         jit_train_step = jax.jit(self.train_step)
 
+        eval_every = iterations // num_evals
         for i in range(iterations):
             rng, subrng = jax.random.split(rng)
             param_vector, info = jit_train_step(param_vector, subrng)
 
-            if i % 50 == 0:
-                print(f"Iteration {i}, mean reward: {info['mean_reward']}")
+            if i % eval_every == 0:
+                self.log_eval_data(info, i)
 
         return self.unravel(param_vector)

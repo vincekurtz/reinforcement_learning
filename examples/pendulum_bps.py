@@ -1,6 +1,5 @@
 import pickle
 import sys
-import time
 
 import jax
 
@@ -19,23 +18,17 @@ Use Boltzmann Policy Search to train a pendulum swingup task.
 
 def train():
     """Train the policy and save it to a file."""
-    print("Setting up the environment...")
     env = PendulumSwingupEnv()
     policy_net = MLP(layer_sizes=(8, 8, 1))
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
-        num_envs=512,
+        num_envs=1024,
         temperature=1.0,
         sigma=0.1,
     )
 
-    print("Initializing the optimizer...")
     bps = BoltzmannPolicySearch(env=env, policy=policy_net, options=options)
-
-    print("Training...")
-    st = time.time()
-    params = bps.train(5000)
-    print(f"Training took {time.time() - st:.2f} seconds.")
+    params = bps.train(iterations=5000, num_evals=10)
 
     fname = "/tmp/pendulum_bps.pkl"
     print(f"Saving policy to {fname}...")
