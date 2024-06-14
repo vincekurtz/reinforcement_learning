@@ -104,6 +104,43 @@ class BoltzmannPolicySearch:
 
         return total_reward
 
+    def train_step(self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey):
+        """Perform a single step of training.
+
+        Args:
+            param_vector: The parameters to use for the policy.
+            rng: The random key to use for the rollouts and sampling.
+
+        Returns:
+            The updated parameter vector, and a dictionary of training info.
+        """
+        # Set random seeds for each rollout
+        rng, rollout_rng = jax.random.split(rng)
+        rollout_rng = jax.random.split(rollout_rng, self.options.num_envs)
+
+        # Sample random normal perturbations to the parameters
+        rng, param_rng = jax.random.split(rng)
+        deltas = jax.random.normal(
+            param_rng, (self.options.num_envs, self.num_params)
+        )
+        perturbed_params = param_vector + self.options.sigma * deltas
+
+        # Roll out the perturbed policies
+        rewards = jax.vmap(self.rollout)(perturbed_params, rollout_rng)
+
+        # Normalize the rewards
+        mean_reward = jnp.mean(rewards)
+        std_reward = jnp.std(rewards)
+        rewards = (rewards - mean_reward) / std_reward
+
+        # Compute the parameter update
+        weights = jnp.exp(rewards / self.options.temperature)
+        weights /= jnp.sum(weights)
+        param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
+
+        info = {"mean_reward": mean_reward, "std_reward": std_reward}
+        return param_vector, info
+
     def train(self, iterations: int, seed: int = 0):
         """Run the main training loop.
 
@@ -112,35 +149,14 @@ class BoltzmannPolicySearch:
             seed: The random seed to use for training.
         """
         rng = jax.random.PRNGKey(seed)
-        jit_rollout = jax.jit(jax.vmap(self.rollout))
         param_vector = self.initial_parameter_vector
+        jit_train_step = jax.jit(self.train_step)
 
         for i in range(iterations):
-            # Set random seeds for each rollout
-            rng, rollout_rng = jax.random.split(rng)
-            rollout_rng = jax.random.split(rollout_rng, self.options.num_envs)
-
-            # Sample random normal perturbations to the parameters
-            rng, param_rng = jax.random.split(rng)
-            deltas = jax.random.normal(
-                param_rng, (self.options.num_envs, self.num_params)
-            )
-            perturbed_params = param_vector + self.options.sigma * deltas
-
-            # Roll out the perturbed policies
-            rewards = jit_rollout(perturbed_params, rollout_rng)
-
-            # Normalize the rewards
-            mean_reward = jnp.mean(rewards)
-            std_reward = jnp.std(rewards)
-            rewards = (rewards - mean_reward) / std_reward
-
-            # Compute the parameter update
-            weights = jnp.exp(rewards / self.options.temperature)
-            weights /= jnp.sum(weights)
-            param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
+            rng, subrng = jax.random.split(rng)
+            param_vector, info = jit_train_step(param_vector, subrng)
 
             if i % 50 == 0:
-                print(f"Iteration {i}, mean reward: {mean_reward}")
+                print(f"Iteration {i}, mean reward: {info['mean_reward']}")
 
         return self.unravel(param_vector)

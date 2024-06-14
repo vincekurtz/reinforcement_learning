@@ -1,5 +1,6 @@
 import pickle
 import sys
+import time
 
 import jax
 
@@ -32,7 +33,9 @@ def train():
     bps = BoltzmannPolicySearch(env=env, policy=policy_net, options=options)
 
     print("Training...")
+    st = time.time()
     params = bps.train(5000)
+    print(f"Training took {time.time() - st:.2f} seconds.")
 
     fname = "/tmp/pendulum_bps.pkl"
     print(f"Saving policy to {fname}...")
