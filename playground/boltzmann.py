@@ -105,7 +105,7 @@ class BoltzmannPolicySearch:
         # Print a summary
         elapsed = datetime.now() - self.start_time
         print(
-            f"  Iter: {iteration}, Reward: {info['mean_reward']:.2f}, Time: {elapsed}"
+            f"  Iter: {iteration}, Reward: {info['train/mean_reward']:.2f}, Time: {elapsed}"
         )
 
     def rollout(self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey):
@@ -171,7 +171,10 @@ class BoltzmannPolicySearch:
         weights /= jnp.sum(weights)
         param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
 
-        info = {"mean_reward": mean_reward, "std_reward": std_reward}
+        info = {
+            "train/mean_reward": mean_reward,
+            "train/std_reward": std_reward,
+        }
         return param_vector, info
 
     def train(self, iterations: int, num_evals: int, seed: int = 0):

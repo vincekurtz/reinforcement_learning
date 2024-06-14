@@ -8,29 +8,29 @@ from playground.boltzmann import (
     BoltzmannPolicySearch,
     BoltzmannPolicySearchOptions,
 )
-from playground.envs.pendulum.pendulum_env import PendulumSwingupEnv
+from playground.envs.cart_pole.cart_pole_env import CartPoleSwingupEnv
 from playground.simulation import run_interactive
 
 """
-Use Boltzmann Policy Search to train a pendulum swingup task.
+Use Boltzmann Policy Search to train a cart-pole swingup task.
 """
 
 
 def train():
     """Train the policy and save it to a file."""
-    env = PendulumSwingupEnv()
+    env = CartPoleSwingupEnv()
     policy_net = MLP(layer_sizes=(8, 8, 1))
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
-        num_envs=1024,
+        num_envs=512,
         temperature=1.0,
         sigma=0.1,
     )
 
     bps = BoltzmannPolicySearch(env=env, policy=policy_net, options=options)
-    params = bps.train(iterations=5000, num_evals=10)
+    params = bps.train(iterations=2000, num_evals=10)
 
-    fname = "/tmp/pendulum_bps.pkl"
+    fname = "/tmp/cart_pole_bps.pkl"
     print(f"Saving policy to {fname}...")
     with open(fname, "wb") as f:
         data = {"params": params, "network": policy_net}
@@ -39,10 +39,10 @@ def train():
 
 def test():
     """Test the policy with an interactive mujoco simulation."""
-    env = PendulumSwingupEnv()
+    env = CartPoleSwingupEnv()
 
     # Load the trained policy
-    with open("/tmp/pendulum_bps.pkl", "rb") as f:
+    with open("/tmp/cart_pole_bps.pkl", "rb") as f:
         data = pickle.load(f)
     policy_net = data["network"]
     params = data["params"]
@@ -55,7 +55,7 @@ def test():
 
 
 if __name__ == "__main__":
-    usage_message = "Usage: python pendulum_bps.py [train|test]"
+    usage_message = "Usage: python cart_pole_bps.py [train|test]"
 
     if len(sys.argv) != 2:
         print(usage_message)
