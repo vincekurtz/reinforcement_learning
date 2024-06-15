@@ -33,7 +33,7 @@ def train():
         options=options,
         tensorboard_logdir="/tmp/rl_playground/humanoid_bps",
     )
-    params = bps.train(iterations=2000, num_evals=10)
+    params = bps.train(iterations=1000, num_evals=10)
 
     fname = "/tmp/humanoid_bps.pkl"
     print(f"Saving policy to {fname}...")

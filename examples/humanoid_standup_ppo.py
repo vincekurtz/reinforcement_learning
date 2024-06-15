@@ -22,7 +22,7 @@ def train():
     """Train the policy and save it to a file."""
     # Create policy and value functions
     network_wrapper = BraxPPONetworksWrapper(
-        policy_network=MLP(layer_sizes=(64, 64, 34)),
+        policy_network=MLP(layer_sizes=(32, 32, 34)),
         value_network=MLP(layer_sizes=(64, 64, 1)),
         action_distribution=NormalTanhDistribution,
     )
@@ -33,7 +33,7 @@ def train():
         network_wrapper=network_wrapper,
         save_path="/tmp/humanoid_ppo.pkl",
         tensorboard_logdir="/tmp/rl_playground/humanoid_ppo",
-        num_timesteps=50_000_000,
+        num_timesteps=80_000_000,
         num_evals=10,
         reward_scaling=0.1,
         episode_length=100,

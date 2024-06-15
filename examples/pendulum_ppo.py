@@ -22,7 +22,7 @@ def train():
     """Train the swingup policy and save it to a file."""
     # Create policy and value functions
     network_wrapper = BraxPPONetworksWrapper(
-        policy_network=MLP(layer_sizes=(32, 32, 2)),
+        policy_network=MLP(layer_sizes=(8, 8, 2)),
         value_network=MLP(layer_sizes=(64, 64, 1)),
         action_distribution=NormalTanhDistribution,
     )
@@ -33,7 +33,7 @@ def train():
         network_wrapper=network_wrapper,
         save_path="/tmp/pendulum_ppo.pkl",
         tensorboard_logdir="/tmp/rl_playground/pendulum_ppo",
-        num_timesteps=20_000_000,
+        num_timesteps=100_000_000,
         num_evals=10,
         reward_scaling=1.0,
         episode_length=100,

@@ -33,7 +33,7 @@ def train():
         network_wrapper=network_wrapper,
         save_path="/tmp/half_cheetah_ppo.pkl",
         tensorboard_logdir="/tmp/rl_playground/half_cheetah_ppo",
-        num_timesteps=50_000_000,
+        num_timesteps=80_000_000,
         num_evals=10,
         reward_scaling=0.1,
         episode_length=100,
