@@ -52,7 +52,7 @@ def train():
 
 
 def test():
-    """Test the swingup policy with an interactive mujoco simulation."""
+    """Test the policy with an interactive mujoco simulation."""
     env = HalfCheetahEnv()
 
     # Load the trained policy
@@ -65,8 +65,8 @@ def test():
     policy = make_policy_function(
         network_wrapper=network_wrapper,
         params=params,
-        observation_size=3,
-        action_size=1,
+        observation_size=env.observation_size,
+        action_size=env.action_size,
         normalize_observations=True,
         deterministic=True,
     )

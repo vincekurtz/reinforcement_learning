@@ -98,3 +98,13 @@ class HalfCheetahEnv(PipelineEnv):
         velocity = data.qvel
 
         return jnp.concatenate([position, velocity])
+
+    @property
+    def observation_size(self) -> int:
+        """Size of the observation space."""
+        return 17
+
+    @property
+    def action_size(self) -> int:
+        """Size of the action space."""
+        return 6
