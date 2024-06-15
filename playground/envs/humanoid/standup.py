@@ -94,7 +94,17 @@ class HumanoidStandupEnv(PipelineEnv):
 
     def _compute_obs(self, data: mjx.Data, action: jnp.ndarray) -> jnp.ndarray:
         """Compute the observation from the current state."""
-        position = data.q[2:]  # exclude x and y positions in the world
-        velocity = data.qd
+        position = data.qpos[2:]  # exclude x and y positions in the world
+        velocity = data.qvel
 
         return jnp.concatenate([position, velocity])
+
+    @property
+    def action_size(self) -> int:
+        """Size of the action space."""
+        return 16
+
+    @property
+    def observation_size(self) -> int:
+        """Size of the observation space."""
+        return 45
