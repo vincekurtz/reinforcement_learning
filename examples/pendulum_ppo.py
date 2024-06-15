@@ -11,7 +11,7 @@ from playground.ppo import (
     make_policy_function,
     train_ppo,
 )
-from playground.simulation import run_interactive
+from playground.simulation import run_interactive, save_video
 
 """
 Use standard PPO to train a pendulum swingup task.
@@ -51,7 +51,7 @@ def train():
     )
 
 
-def test():
+def test(interactive=True):
     """Test the swingup policy with an interactive mujoco simulation."""
     env = PendulumSwingupEnv()
 
@@ -73,11 +73,14 @@ def test():
     jit_policy = jax.jit(lambda obs: policy(obs, jax.random.PRNGKey(0))[0])
 
     # Run the sim
-    run_interactive(env, jit_policy, fixed_camera_id=0)
+    if interactive:
+        run_interactive(env, jit_policy, fixed_camera_id=0)
+    else:
+        save_video(env, jit_policy, "pendulum.mp4", camera_name="camera")
 
 
 if __name__ == "__main__":
-    usage_message = "Usage: python pendulum_ppo.py [train|test]"
+    usage_message = "Usage: python pendulum_ppo.py [train|test|video]"
 
     if len(sys.argv) != 2:
         print(usage_message)

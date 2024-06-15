@@ -3,11 +3,51 @@ from typing import Callable
 
 import jax
 import jax.numpy as jnp
+import mediapy
 import mujoco
 import mujoco.viewer
 import numpy as np
 from brax.envs.base import PipelineEnv
 from mujoco import mjx
+
+
+def save_video(
+    env: PipelineEnv,
+    policy: Callable[[jnp.ndarray], jnp.ndarray],
+    filename: str,
+    duration: float = 10.0,
+    camera_name: str = None,
+    seed: int = 0,
+):
+    """Make a video of an MJX simulation with a given policy.
+
+    Args:
+        env: The environment to simulate.
+        policy: A function that takes an observation and returns an action.
+        filename: The filename to save the video to.
+        duration: The duration of the video in seconds.
+        camera_name: The name of the camera to use, or None for the default.
+        seed: The random seed to use.
+    """
+    rng = jax.random.PRNGKey(seed)
+    jit_reset = jax.jit(env.reset)
+    jit_step = jax.jit(env.step)
+
+    state = jit_reset(rng)
+    rollout = [state.pipeline_state]
+
+    print("Simulating...")
+    num_steps = int(duration / env.dt)
+    for _ in range(num_steps):
+        action = policy(state.obs)
+        state = jit_step(state, action)
+        rollout.append(state.pipeline_state)
+
+    print("Rendering frames...")
+    frames = env.render(rollout, camera=camera_name)
+
+    print(f"Writing video to {filename}...")
+    mediapy.write_video(filename, frames, fps=1 / env.dt)
 
 
 def run_interactive(
