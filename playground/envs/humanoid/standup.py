@@ -102,7 +102,7 @@ class HumanoidStandupEnv(PipelineEnv):
     @property
     def action_size(self) -> int:
         """Size of the action space."""
-        return 16
+        return 17
 
     @property
     def observation_size(self) -> int:
