@@ -32,6 +32,7 @@ def train():
         env=CartPoleSwingupEnv,
         network_wrapper=network_wrapper,
         save_path="/tmp/cart_pole_ppo.pkl",
+        tensorboard_logdir="/tmp/rl_playground/cart_pole_ppo",
         num_timesteps=50_000_000,
         num_evals=10,
         reward_scaling=0.1,

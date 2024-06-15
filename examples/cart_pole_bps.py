@@ -27,7 +27,12 @@ def train():
         sigma=0.1,
     )
 
-    bps = BoltzmannPolicySearch(env=env, policy=policy_net, options=options)
+    bps = BoltzmannPolicySearch(
+        env=env,
+        policy=policy_net,
+        options=options,
+        tensorboard_logdir="/tmp/rl_playground/cart_pole_bps",
+    )
     params = bps.train(iterations=2000, num_evals=10)
 
     fname = "/tmp/cart_pole_bps.pkl"

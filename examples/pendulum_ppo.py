@@ -32,6 +32,7 @@ def train():
         env=PendulumSwingupEnv,
         network_wrapper=network_wrapper,
         save_path="/tmp/pendulum_ppo.pkl",
+        tensorboard_logdir="/tmp/rl_playground/pendulum_ppo",
         num_timesteps=20_000_000,
         num_evals=10,
         reward_scaling=1.0,
