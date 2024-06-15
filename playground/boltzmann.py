@@ -1,10 +1,12 @@
 from datetime import datetime
+from typing import Tuple
 
 import flax.linen as nn
 import jax
 import jax.flatten_util
 import jax.numpy as jnp
 from brax.envs.base import PipelineEnv
+from brax.training.types import Metrics, Params
 from flax import struct
 from tensorboardX import SummaryWriter
 
@@ -17,12 +19,14 @@ class BoltzmannPolicySearchOptions:
     num_envs: The number of parameter samples to take (each in a separate env).
     temperature: The temperature parameter λ in the update rule.
     sigma: The standard deviation of the parameter noise.
+    num_eval_envs: The number of environments to use for evaluation.
     """
 
     episode_length: int
     num_envs: int
     temperature: float
     sigma: float
+    num_eval_envs: int = 128
 
 
 class BoltzmannPolicySearch:
@@ -88,7 +92,49 @@ class BoltzmannPolicySearch:
         print("Setting up tensorboard logging at", logdir)
         self.tb_writer = SummaryWriter(logdir)
 
-    def log_eval_data(self, info: dict, iteration: int):
+    def evaluate(
+        self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey
+    ) -> Metrics:
+        """Evaluate the policy with a given set of parameters.
+
+        Args:
+            param_vector: The parameters to use for the policy.
+            rng: The random seed to use for evaluation.
+
+        Returns:
+            A dictionary of evaluation info.
+        """
+        rng, eval_rng = jax.random.split(rng)
+        eval_rng = jax.random.split(eval_rng, self.options.num_eval_envs)
+
+        rewards, rollout_metrics = jax.vmap(self.rollout, in_axes=(None, 0))(
+            param_vector, eval_rng
+        )
+
+        # Sum the rollout metrics over each episode
+        rollout_metrics = jax.tree.map(
+            lambda x: jnp.sum(
+                x.reshape((self.options.num_eval_envs, -1)), axis=-1
+            ),
+            rollout_metrics,
+        )
+
+        metrics = {
+            "eval/episode_reward": jnp.mean(rewards),
+            "eval/episode_reward_std": jnp.std(rewards),
+        }
+
+        for key, val in rollout_metrics.items():
+            metrics.update(
+                {
+                    f"eval/episode_{key}": jnp.mean(val),
+                    f"eval/episode_{key}_std": jnp.std(val),
+                }
+            )
+
+        return metrics
+
+    def log_eval_data(self, info: dict, iteration: int) -> None:
         """Log evaluation info to tensorboard.
 
         Args:
@@ -104,11 +150,12 @@ class BoltzmannPolicySearch:
 
         # Print a summary
         elapsed = datetime.now() - self.start_time
-        print(
-            f"  Iter: {iteration}, Reward: {info['train/mean_reward']:.2f}, Time: {elapsed}"
-        )
+        reward = info["eval/episode_reward"]
+        print(f"  Iter: {iteration}, Reward: {reward:.2f}, Time: {elapsed}")
 
-    def rollout(self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey):
+    def rollout(
+        self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey
+    ) -> Tuple[jnp.ndarray, Metrics]:
         """Roll out the policy with a given set of parameters.
 
         Args:
@@ -129,15 +176,17 @@ class BoltzmannPolicySearch:
             action = self.policy.apply(params, state.obs)
             state = self.env.step(state, action)
             total_reward += state.reward
-            return (state, total_reward), None
+            return (state, total_reward), state.metrics
 
-        (_, total_reward), _ = jax.lax.scan(
+        (_, total_reward), metrics = jax.lax.scan(
             f, (start_state, 0.0), jnp.arange(self.options.episode_length)
         )
 
-        return total_reward
+        return total_reward, metrics
 
-    def train_step(self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey):
+    def train_step(
+        self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey
+    ) -> Tuple[jnp.ndarray, Metrics]:
         """Perform a single step of training.
 
         Args:
@@ -159,7 +208,7 @@ class BoltzmannPolicySearch:
         perturbed_params = param_vector + self.options.sigma * deltas
 
         # Roll out the perturbed policies
-        rewards = jax.vmap(self.rollout)(perturbed_params, rollout_rng)
+        rewards, _ = jax.vmap(self.rollout)(perturbed_params, rollout_rng)
 
         # Normalize the rewards
         mean_reward = jnp.mean(rewards)
@@ -172,31 +221,40 @@ class BoltzmannPolicySearch:
         param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
 
         info = {
-            "train/mean_reward": mean_reward,
-            "train/std_reward": std_reward,
+            "training/mean_reward": mean_reward,
+            "training/std_reward": std_reward,
         }
         return param_vector, info
 
-    def train(self, iterations: int, num_evals: int, seed: int = 0):
+    def train(self, iterations: int, num_evals: int, seed: int = 0) -> Params:
         """Run the main training loop.
 
         Args:
             iterations: The number of training iterations to run.
             num_evals: The number of times to print stuff out.
             seed: The random seed to use for training.
+
+        Returns:
+            The final parameters of the policy, in pytree format.
         """
         rng = jax.random.PRNGKey(seed)
+        param_vector = self.initial_parameter_vector
         self.start_time = datetime.now()
 
-        param_vector = self.initial_parameter_vector
         jit_train_step = jax.jit(self.train_step)
+        jit_evaluate = jax.jit(self.evaluate)
 
         eval_every = iterations // num_evals
         for i in range(iterations):
-            rng, subrng = jax.random.split(rng)
-            param_vector, info = jit_train_step(param_vector, subrng)
+            rng, train_rng = jax.random.split(rng)
+            param_vector, train_metrics = jit_train_step(
+                param_vector, train_rng
+            )
 
             if i % eval_every == 0:
-                self.log_eval_data(info, i)
+                rng, eval_rng = jax.random.split(rng)
+                metrics = jit_evaluate(param_vector, eval_rng)
+                metrics.update(train_metrics)
+                self.log_eval_data(metrics, i)
 
         return self.unravel(param_vector)

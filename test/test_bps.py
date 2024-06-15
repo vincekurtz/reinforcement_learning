@@ -26,11 +26,17 @@ def test_bps():
     # Check that a single rollout works
     rng, rollout_rng = jax.random.split(rng)
     param_vec = bps.initial_parameter_vector
-    reward = bps.rollout(param_vec, rollout_rng)
+    reward, _ = bps.rollout(param_vec, rollout_rng)
     assert reward.shape == ()
 
+    # Check evaluation
+    rng, eval_rng = jax.random.split(rng)
+    metrics = bps.evaluate(param_vec, eval_rng)
+    assert isinstance(metrics, dict)
+    assert "eval/episode_reward" in metrics
+
     # Check that the main training loop works
-    params = bps.train(2000)
+    params = bps.train(iterations=100, num_evals=3)
     assert params is not None
 
 
