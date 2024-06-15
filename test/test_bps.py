@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import jax
 
 from playground.architectures import MLP
@@ -14,13 +16,19 @@ def test_bps():
     env = PendulumSwingupEnv()
     policy = MLP(layer_sizes=(8, 8, 1))
 
+    # Set up a temporary tensorboard logdir
+    local_dir = Path("_test_bps")
+    local_dir.mkdir(parents=True, exist_ok=True)
+
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
         num_envs=32,
         temperature=1.0,
         sigma=0.1,
     )
-    bps = BoltzmannPolicySearch(env, policy, options)
+    bps = BoltzmannPolicySearch(
+        env, policy, options, tensorboard_logdir=local_dir
+    )
     assert bps.num_params > 0
 
     # Check that a single rollout works
@@ -38,6 +46,11 @@ def test_bps():
     # Check that the main training loop works
     params = bps.train(iterations=100, num_evals=3)
     assert params is not None
+
+    # Clean up
+    for p in local_dir.iterdir():
+        p.unlink()
+    local_dir.rmdir()
 
 
 if __name__ == "__main__":
