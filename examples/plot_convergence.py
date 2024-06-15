@@ -19,25 +19,70 @@ def plot_convergence(fname, fill_std=True, label=None):
         scalar.value for scalar in ea.Scalars("eval/episode_reward_std")
     ]
     steps = [scalar.step for scalar in ea.Scalars("eval/episode_reward")]
+    start_time = ea.Scalars("eval/episode_reward")[0].wall_time
+    times = [
+        scalar.wall_time - start_time
+        for scalar in ea.Scalars("eval/episode_reward")
+    ]
 
     reward = np.array(reward)
     reward_std = np.array(reward_std)
+    steps = np.array(steps)
+    times = np.array(times)
 
     # Plot the reward and std
-    plt.plot(steps, reward, label=label, linewidth=3)
+    plt.plot(times, reward, label=label, linewidth=3)
     if fill_std:
         plt.fill_between(
-            steps, reward - reward_std, reward + reward_std, alpha=0.2
+            times, reward - reward_std, reward + reward_std, alpha=0.2
         )
 
 
 if __name__ == "__main__":
     pendulum_ppo_log = "/tmp/rl_playground/pendulum_ppo/events.out.tfevents.1718486394.XPS-8960"
-    pendulum_bpg_log = "/tmp/rl_playground/pendulum_bpg/events.out.tfevents.1718486394.XPS-8960"
+    pendulum_bpg_log = "/tmp/rl_playground/pendulum_bps/events.out.tfevents.1718486434.XPS-8960"
+
+    cart_pole_ppo_log = "/tmp/rl_playground/cart_pole_ppo/events.out.tfevents.1718486321.XPS-8960"
+    cart_pole_bpg_log = "/tmp/rl_playground/cart_pole_bps/events.out.tfevents.1718486356.XPS-8960"
+
+    half_cheetah_ppo_log = "/tmp/rl_playground/half_cheetah_ppo/events.out.tfevents.1718486159.XPS-8960"
+    half_cheetah_bpg_log = "/tmp/rl_playground/half_cheetah_bps/events.out.tfevents.1718485985.XPS-8960"
+
+    humanoid_ppo_log = "/tmp/rl_playground/humanoid_ppo/events.out.tfevents.1718484961.XPS-8960"
+    humanoid_bpg_log = "/tmp/rl_playground/humanoid_bps/events.out.tfevents.1718485370.XPS-8960"
 
     plt.figure(figsize=(10, 5))
+
+    plt.subplot(2, 2, 1)
+    plt.title("Pendulum")
     plot_convergence(pendulum_ppo_log, label="PPO")
-    plt.xlabel("Steps")
+    plot_convergence(pendulum_bpg_log, label="BPG")
+    plt.xlabel("Wall Clock Time (s)")
     plt.ylabel("Reward")
     plt.legend()
+
+    plt.subplot(2, 2, 2)
+    plt.title("Cart Pole")
+    plot_convergence(cart_pole_ppo_log, label="PPO")
+    plot_convergence(cart_pole_bpg_log, label="BPG")
+    plt.xlabel("Wall Clock Time (s)")
+    plt.ylabel("Reward")
+    plt.legend()
+
+    plt.subplot(2, 2, 3)
+    plt.title("Half Cheetah")
+    plot_convergence(half_cheetah_ppo_log, label="PPO")
+    plot_convergence(half_cheetah_bpg_log, label="BPG")
+    plt.xlabel("Wall Clock Time (s)")
+    plt.ylabel("Reward")
+    plt.legend()
+
+    plt.subplot(2, 2, 4)
+    plt.title("Humanoid")
+    plot_convergence(humanoid_ppo_log, label="PPO")
+    plot_convergence(humanoid_bpg_log, label="BPG")
+    plt.xlabel("Wall Clock Time (s)")
+    plt.ylabel("Reward")
+    plt.legend()
+
     plt.show()
