@@ -22,7 +22,7 @@ def train():
     policy_net = MLP(layer_sizes=(32, 32, 17))
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
-        num_envs=512,
+        num_envs=1024,
         temperature=1.0,
         sigma=0.1,
     )
