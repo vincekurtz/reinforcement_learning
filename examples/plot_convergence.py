@@ -49,7 +49,7 @@ if __name__ == "__main__":
     half_cheetah_bpg_log = "/tmp/rl_playground/half_cheetah_bps/events.out.tfevents.1718485985.XPS-8960"
 
     humanoid_ppo_log = "/tmp/rl_playground/humanoid_ppo/events.out.tfevents.1718484961.XPS-8960"
-    humanoid_bpg_log = "/tmp/rl_playground/humanoid_bps/events.out.tfevents.1718485370.XPS-8960"
+    humanoid_bpg_log = "/tmp/rl_playground/humanoid_bps/events.out.tfevents.1718489357.XPS-8960"
 
     plt.figure(figsize=(10, 5))
 
