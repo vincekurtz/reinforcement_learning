@@ -30,9 +30,6 @@ class PendulumSwingupConfig:
     theta_dot_cost_weight: float = 0.1
     control_cost_weight: float = 0.001
 
-    # Torque limits
-    u_max: float = 1.0
-
     # Ranges for sampling initial conditions
     qpos_hi: float = jnp.pi
     qpos_lo: float = -jnp.pi
@@ -97,7 +94,11 @@ class PendulumSwingupEnv(PipelineEnv):
         # other state fields
         obs = self._compute_obs(data, {})
         reward, done = jnp.zeros(2)
-        metrics = {"reward": reward}
+        metrics = {
+            "theta_cost": 0.0,
+            "theta_dot_cost": 0.0,
+            "control_cost": 0.0,
+        }
         state_info = {"rng": rng, "step": 0}
         return State(data, obs, reward, done, metrics, state_info)
 
@@ -105,24 +106,36 @@ class PendulumSwingupEnv(PipelineEnv):
         """Take a step in the environment."""
         rng, rng_obs = jax.random.split(state.info["rng"])
 
-        # physics + observation + reward
-        action = self.config.u_max * action  # scale so actions are in [-1, 1]
-        action = jnp.clip(action, -self.config.u_max, self.config.u_max)
-        data = self.pipeline_step(state.pipeline_state, action)  # physics
-        obs = self._compute_obs(data, state.info)  # observation
-        obs = (
-            obs + jax.random.normal(rng_obs, obs.shape) * self.config.stdev_obs
-        )  # adding noise to obs
-        reward = self._compute_reward(data, state.info)
-        done = 0.0  # pendulum just runs for a fixed number of steps
+        # Step the physics
+        data = self.pipeline_step(state.pipeline_state, action)
+
+        # Compute an observation with noise
+        obs = self._compute_obs(data, state.info)
+        obs += jax.random.normal(rng_obs, obs.shape) * self.config.stdev_obs
+
+        # Compute the reward
+        theta = data.qpos[0] - jnp.pi
+        theta_dot = data.qvel[0]
+        tau = data.ctrl[0]
+        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
+
+        theta_cost = jnp.square(theta_err_normalized).sum()
+        theta_dot_cost = jnp.square(theta_dot).sum()
+        control_cost = jnp.square(tau).sum()
+
+        reward = (
+            -self.config.theta_cost_weight * theta_cost
+            - self.config.theta_dot_cost_weight * theta_dot_cost
+            - self.config.control_cost_weight * control_cost
+        )
 
         # updating state
         state.info["step"] = state.info["step"] + 1
         state.info["rng"] = rng
-        state.metrics["reward"] = reward
-        state = state.replace(
-            pipeline_state=data, obs=obs, reward=reward, done=done
-        )
+        state.metrics["theta_cost"] = theta_cost
+        state.metrics["theta_dot_cost"] = theta_dot_cost
+        state.metrics["control_cost"] = control_cost
+        state = state.replace(pipeline_state=data, obs=obs, reward=reward)
         return state
 
     def _compute_obs(self, data: mjx.Data, info: Dict[str, Any]) -> jax.Array:
@@ -130,34 +143,6 @@ class PendulumSwingupEnv(PipelineEnv):
         theta = data.qpos[0]
         obs = jnp.stack((jnp.cos(theta), jnp.sin(theta), data.qvel[0]))
         return obs
-
-    def _compute_reward(
-        self, data: mjx.Data, info: Dict[str, Any]
-    ) -> jax.Array:
-        """Computes the reward for the current environment state.
-
-        Returns:
-            reward (shape=(1,)): the reward, maximized at qpos[0] = pi.
-        """
-        theta = data.qpos[0] - jnp.pi
-        theta_dot = data.qvel[0]
-        tau = data.ctrl[0]
-
-        # Compute a normalized angle error (upright is zero)
-        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
-
-        # Compute the reward
-        theta_cost = jnp.square(theta_err_normalized).sum()
-        theta_dot_cost = jnp.square(theta_dot).sum()
-        control_cost = jnp.square(tau).sum()
-
-        total_reward = (
-            -self.config.theta_cost_weight * theta_cost
-            - self.config.theta_dot_cost_weight * theta_dot_cost
-            - self.config.control_cost_weight * control_cost
-        )
-
-        return total_reward
 
     @property
     def observation_size(self) -> int:

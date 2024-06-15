@@ -89,8 +89,7 @@ class CartPoleSwingupEnv(PipelineEnv):
 
     def step(self, state: State, action: jnp.ndarray) -> State:
         """Steps the environment forward one timestep."""
-        data0 = state.pipeline_state
-        data = self.pipeline_step(data0, action)
+        data = self.pipeline_step(state.pipeline_state, action)
         obs = self._compute_obs(data, state.info)
 
         # Compute a normalized angle error (upright is zero)
@@ -128,32 +127,12 @@ class CartPoleSwingupEnv(PipelineEnv):
         td = data.qvel[1]
         return jnp.array([p, c, s, pd, td])
 
-    def _compute_reward(
-        self, data: mjx.Data, info: Dict[str, Any]
-    ) -> jax.Array:
-        """Computes the reward from the state."""
-        pos = data.qpos[0]
-        theta = data.qpos[1]
+    @property
+    def action_size(self) -> int:
+        """Returns the size of the action space."""
+        return 1
 
-        # Compute a normalized angle error (upright is zero)
-        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
-
-        # Compute the reward
-        upright_reward = (
-            -self.config.upright_angle_cost
-            * jnp.square(theta_err_normalized).sum()
-        )
-        center_cart_reward = (
-            -self.config.center_cart_cost * jnp.square(pos).sum()
-        )
-        velocity_reward = (
-            -self.config.velocity_cost * jnp.square(data.qvel).sum()
-        )
-        control_reward = -self.config.control_cost * jnp.square(data.ctrl).sum()
-
-        return (
-            upright_reward
-            + center_cart_reward
-            + velocity_reward
-            + control_reward
-        )
+    @property
+    def observation_size(self) -> int:
+        """Returns the size of the observation space."""
+        return 5
