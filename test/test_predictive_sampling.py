@@ -13,10 +13,10 @@ def make_optimizer():
     """Make a simple PredictiveSampling instance."""
     env = PendulumSwingupEnv()
     options = PredictiveSamplingOptions(
-        episode_length=100,
-        planning_horizon=10,
+        episode_length=1000,
+        planning_horizon=20,
         num_envs=4,
-        num_samples=8,
+        num_samples=512,
         noise_std=0.1,
     )
     policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
@@ -75,6 +75,18 @@ def test_choose_action_sequence():
     assert best_reward > other_reward
 
 
+def test_episode():
+    """Test running an episode from a single initial state."""
+    rng = jax.random.PRNGKey(0)
+    ps = make_optimizer()
+    policy_params = None  # TODO: include policy
+
+    rng, episode_rng = jax.random.split(rng)
+    obs, actions = ps.episode(policy_params, episode_rng)
+    print("last obs: ", obs[-1])
+
+
 if __name__ == "__main__":
     # test_rollout()
-    test_choose_action_sequence()
+    # test_choose_action_sequence()
+    test_episode()

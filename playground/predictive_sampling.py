@@ -139,10 +139,45 @@ class PredictiveSampling:
         """Collect an episode of training data from a random initial state.
 
         Args:
-            policy_params: The curren policy parameters
+            policy_params: The current policy parameters
             rng: The random key to use.
 
         Returns:
             A dataset of (start_state, action_sequence) pairs.
         """
-        raise NotImplementedError
+        # Set a random initial state
+        rng, reset_rng = jax.random.split(rng)
+        state = self.env.reset(reset_rng)
+        print("start theta: ", state.pipeline_state.qpos)
+
+        # Set a random initial action sequence
+        rng, action_rng = jax.random.split(rng)
+        action_sequence = self.options.noise_std * jax.random.normal(
+            action_rng,
+            (self.options.planning_horizon, self.env.action_size),
+        )
+
+        def f(carry, t):
+            """Choose an action sequence and execute the first action."""
+            start_state, last_action_sequence, rng = carry
+            rng, sample_rng = jax.random.split(rng)
+
+            action_sequence = self.choose_action_sequence(
+                start_state, last_action_sequence, policy_params, sample_rng
+            )
+            state = self.env.step(start_state, action_sequence[0])
+            return (state, action_sequence, rng), (
+                start_state.obs,
+                action_sequence,
+            )
+
+        (state, _, _), dataset = jax.lax.scan(
+            f,
+            (state, action_sequence, rng),
+            jnp.arange(self.options.episode_length),
+        )
+
+        print("last theta:", state.pipeline_state.qpos)
+        print("last theta cost: ", state.metrics["theta_cost"])
+
+        return dataset
