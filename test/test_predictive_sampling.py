@@ -13,11 +13,11 @@ def make_optimizer():
     """Make a simple PredictiveSampling instance."""
     env = PendulumSwingupEnv()
     options = PredictiveSamplingOptions(
-        episode_length=1000,
+        episode_length=500,
         planning_horizon=20,
         num_envs=4,
-        num_samples=1024,
-        noise_std=0.2,
+        num_samples=16,
+        noise_std=0.5,
     )
     policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
     return PredictiveSampling(env, policy, options)
@@ -83,6 +83,7 @@ def test_episode():
 
     rng, episode_rng = jax.random.split(rng)
     obs, actions = ps.episode(policy_params, episode_rng)
+
     assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-1)
 
 
