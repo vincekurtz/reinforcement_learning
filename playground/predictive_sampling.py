@@ -107,10 +107,29 @@ class PredictiveSampling:
         Returns:
             The sampled action sequence with the highest reward.
         """
+        rng, last_rng, policy_rng = jax.random.split(rng, 3)
+
         # Sample around the last action sequence
-        # Sample around the policy output
+        mu_last = jnp.roll(last_action_sequence, -1, axis=0)
+        mu_last = mu_last.at[-1].set(mu_last[-2])
+        samples_from_last = (
+            mu_last
+            + self.options.noise_std
+            * jax.random.normal(
+                last_rng, (self.options.num_samples,) + mu_last.shape
+            )
+        )
+
+        # TODO: sample around the policy output as well
+        all_samples = samples_from_last
+
         # Roll out each action sequence and return the best one
-        raise NotImplementedError
+        rewards = jax.vmap(self.rollout, in_axes=(None, 0))(
+            start_state, all_samples
+        )
+        best_index = jnp.argmax(rewards)
+        best_action_sequence = all_samples[best_index]
+        return best_action_sequence
 
     def episode(
         self,
