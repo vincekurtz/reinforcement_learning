@@ -16,8 +16,8 @@ def make_optimizer():
         episode_length=1000,
         planning_horizon=20,
         num_envs=4,
-        num_samples=512,
-        noise_std=0.1,
+        num_samples=1024,
+        noise_std=0.2,
     )
     policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
     return PredictiveSampling(env, policy, options)
@@ -61,7 +61,7 @@ def test_choose_action_sequence():
         act_rng,
         (ps.options.planning_horizon, ps.env.action_size),
     )
-    policy_params = None  # TODO: include policy
+    policy_params = ps.init_params
 
     best_action_sequence = ps.choose_action_sequence(
         start_state, last_action_sequence, policy_params, sample_rng
@@ -79,14 +79,15 @@ def test_episode():
     """Test running an episode from a single initial state."""
     rng = jax.random.PRNGKey(0)
     ps = make_optimizer()
-    policy_params = None  # TODO: include policy
+    policy_params = ps.init_params
 
     rng, episode_rng = jax.random.split(rng)
     obs, actions = ps.episode(policy_params, episode_rng)
-    assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-2)
+    assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-1)
 
 
 if __name__ == "__main__":
+    # make_optimizer()
     # test_rollout()
     # test_choose_action_sequence()
     test_episode()

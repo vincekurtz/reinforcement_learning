@@ -57,7 +57,22 @@ class PredictiveSampling:
         self.options = options
         self.seed = seed
 
-        # TODO: check the policy has the correct output size
+        # Initialize the policy parameters
+        rng = jax.random.PRNGKey(seed)
+        rng, init_rng = jax.random.split(rng)
+        dummy_obs = jnp.zeros((1, env.observation_size))
+        self.init_params = self.policy.init(init_rng, dummy_obs)
+
+        # Check the policy has the correct output size
+        dummy_output = self.policy.apply(self.init_params, dummy_obs)
+        assert dummy_output.shape[-1] == (
+            env.action_size * options.planning_horizon
+        ), (
+            f"Policy output size {dummy_output.shape[-1]} "
+            f"does not match action sequence size "
+            f"{env.action_size}x{options.planning_horizon} "
+            f"= {env.action_size * options.planning_horizon}"
+        )
 
     def rollout(
         self, start_state: State, action_sequence: jnp.ndarray
@@ -120,8 +135,18 @@ class PredictiveSampling:
             )
         )
 
-        # TODO: sample around the policy output as well
-        all_samples = samples_from_last
+        # Sample around the policy output as well
+        mu_policy = self.policy.apply(policy_params, start_state.obs)
+        mu_policy = jnp.reshape(mu_policy, (self.options.planning_horizon, -1))
+        samples_from_policy = (
+            mu_policy
+            + self.options.noise_std
+            * jax.random.normal(
+                policy_rng, (self.options.num_samples,) + mu_policy.shape
+            )
+        )
+
+        all_samples = jnp.concatenate([samples_from_last, samples_from_policy])
 
         # Roll out each action sequence and return the best one
         rewards = jax.vmap(self.rollout, in_axes=(None, 0))(
