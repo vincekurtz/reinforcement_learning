@@ -148,7 +148,6 @@ class PredictiveSampling:
         # Set a random initial state
         rng, reset_rng = jax.random.split(rng)
         state = self.env.reset(reset_rng)
-        print("start theta: ", state.pipeline_state.qpos)
 
         # Set a random initial action sequence
         rng, action_rng = jax.random.split(rng)
@@ -176,8 +175,5 @@ class PredictiveSampling:
             (state, action_sequence, rng),
             jnp.arange(self.options.episode_length),
         )
-
-        print("last theta:", state.pipeline_state.qpos)
-        print("last theta cost: ", state.metrics["theta_cost"])
 
         return dataset

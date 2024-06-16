@@ -83,7 +83,7 @@ def test_episode():
 
     rng, episode_rng = jax.random.split(rng)
     obs, actions = ps.episode(policy_params, episode_rng)
-    print("last obs: ", obs[-1])
+    assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-2)
 
 
 if __name__ == "__main__":
