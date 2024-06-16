@@ -71,7 +71,19 @@ class PredictiveSampling:
         Returns:
             The total reward from the rollout.
         """
-        raise NotImplementedError
+
+        def step(carry, i):
+            """Take a single step in the environment and sum the reward."""
+            state, reward = carry
+            action = action_sequence[i]
+            state = self.env.step(state, action)
+            reward += state.reward
+            return (state, reward), None
+
+        (_, total_reward), _ = jax.lax.scan(
+            step, (start_state, 0.0), jnp.arange(self.options.planning_horizon)
+        )
+        return total_reward
 
     def choose_action_sequence(
         self,
