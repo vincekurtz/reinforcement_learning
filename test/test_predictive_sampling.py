@@ -12,7 +12,11 @@ def test_predictive_sampling():
     """Test predictive sampling policy search."""
     env = PendulumSwingupEnv()
     options = PredictiveSamplingOptions(
-        episode_length=100, planning_horizon=10, num_envs=4, num_samples=8
+        episode_length=100,
+        planning_horizon=10,
+        num_envs=4,
+        num_samples=8,
+        noise_std=0.1,
     )
     policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
 

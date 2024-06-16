@@ -1,5 +1,10 @@
+from typing import Tuple
+
 import flax.linen as nn
-from brax.envs.base import PipelineEnv
+import jax
+import jax.numpy as jnp
+from brax.envs.base import PipelineEnv, State
+from brax.training.types import Params
 from flax import struct
 
 
@@ -11,12 +16,14 @@ class PredictiveSamplingOptions:
     planning_horizon: The number of timesteps to plan ahead.
     num_envs: The number of parallel environments to use.
     num_samples: The number of samples to take in each environment.
+    noise_std: The standard deviation of the noise added to actions.
     """
 
     episode_length: int
     planning_horizon: int
     num_envs: int
     num_samples: int
+    noise_std: float
 
 
 class PredictiveSampling:
@@ -51,3 +58,60 @@ class PredictiveSampling:
         self.seed = seed
 
         # TODO: check the policy has the correct output size
+
+    def rollout(
+        self, start_state: State, action_sequence: jnp.ndarray
+    ) -> jnp.ndarray:
+        """Apply the given action sequence and return the total reward.
+
+        Args:
+            start_state: The initial state of the environment.
+            action_sequence: A sequence of actions to execute.
+
+        Returns:
+            The total reward from the rollout.
+        """
+        raise NotImplementedError
+
+    def choose_action_sequence(
+        self,
+        start_state: State,
+        last_action_sequence: jnp.ndarray,
+        policy_params: Params,
+        rng: jax.random.PRNGKey,
+    ) -> jnp.ndarray:
+        """Use predictive sampling to get a reasonable action sequence.
+
+        Half of the samples are from a normal distribution around the last
+        action sequence, while the other half are from a normal distribution
+        around the policy output.
+
+        Args:
+            start_state: The initial state of the environment.
+            last_action_sequence: The last action sequence executed.
+            policy_params: The parameters of the policy.
+            rng: The random key to use.
+
+        Returns:
+            The sampled action sequence with the highest reward.
+        """
+        # Sample around the last action sequence
+        # Sample around the policy output
+        # Roll out each action sequence and return the best one
+        raise NotImplementedError
+
+    def episode(
+        self,
+        policy_params: Params,
+        rng: jax.random.PRNGKey,
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        """Collect an episode of training data from a random initial state.
+
+        Args:
+            policy_params: The curren policy parameters
+            rng: The random key to use.
+
+        Returns:
+            A dataset of (start_state, action_sequence) pairs.
+        """
+        raise NotImplementedError
