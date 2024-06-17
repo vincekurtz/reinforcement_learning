@@ -44,6 +44,33 @@ def test_training_state():
     assert training_state.opt_state is not None
 
 
+def test_apply_policy():
+    """Test applying a policy to an observation."""
+    rng = jax.random.PRNGKey(0)
+    ps = make_optimizer()
+    training_state = ps.make_training_state(rng)
+    policy_params = training_state.params
+
+    # Make sure we can apply the policy to a single action
+    rng, apply_rng = jax.random.split(rng)
+    obs = jax.random.normal(apply_rng, (ps.env.observation_size,))
+    action = ps.apply_policy(policy_params, obs)
+    assert action.shape == (ps.options.planning_horizon, ps.env.action_size)
+
+    # Make sure we can apply the policy to a batch of actions
+    rng, apply_rng = jax.random.split(rng)
+    obs = jax.random.normal(
+        apply_rng,
+        (10, ps.env.observation_size),
+    )
+    actions = ps.apply_policy(policy_params, obs)
+    assert actions.shape == (
+        10,
+        ps.options.planning_horizon,
+        ps.env.action_size,
+    )
+
+
 def test_rollout():
     """Test rolling out an action sequence."""
     rng = jax.random.PRNGKey(0)
@@ -137,13 +164,7 @@ def test_regression():
     )
 
     # See how well the old policy fits the data
-    act_pred = ps.policy.apply(training_state.params, obs).reshape(
-        (
-            ps.options.episode_length * ps.options.num_envs,
-            ps.options.planning_horizon,
-            ps.env.action_size,
-        )
-    )
+    act_pred = ps.apply_policy(training_state.params, obs)
     old_error = jnp.mean(jnp.square(act_pred - actions))
 
     # Fit the policy to the data
@@ -154,13 +175,7 @@ def test_regression():
     )
 
     # Make sure the new policy fits the data better
-    act_pred = ps.policy.apply(new_training_state.params, obs).reshape(
-        (
-            ps.options.episode_length * ps.options.num_envs,
-            ps.options.planning_horizon,
-            ps.env.action_size,
-        )
-    )
+    act_pred = ps.apply_policy(new_training_state.params, obs)
     new_error = jnp.mean(jnp.square(act_pred - actions))
     assert new_error < old_error
 
@@ -196,8 +211,9 @@ def test_regression():
 
 
 if __name__ == "__main__":
-    # test_training_state()
-    # test_rollout()
-    # test_choose_action_sequence()
-    # test_episode()
+    test_training_state()
+    test_apply_policy()
+    test_rollout()
+    test_choose_action_sequence()
+    test_episode()
     test_regression()

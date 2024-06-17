@@ -114,6 +114,23 @@ class PredictiveSampling:
 
         return TrainingState(params=init_params, opt_state=opt_state)
 
+    def apply_policy(self, params: Params, obs: jnp.ndarray) -> jnp.ndarray:
+        """Get a control action sequence u₀, u₁, ... = π(y₀; θ).
+
+        Args:
+            params: The parameters of the policy network θ.
+            obs: The initial observation y₀.
+
+        Returns:
+            The action sequence u₀, u₁, ....
+        """
+        flat_actions = self.policy.apply(params, obs)
+        return jnp.reshape(
+            flat_actions,
+            obs.shape[:-1]
+            + (self.options.planning_horizon, self.env.action_size),
+        )
+
     def rollout(
         self, start_state: State, action_sequence: jnp.ndarray
     ) -> jnp.ndarray:
@@ -176,9 +193,7 @@ class PredictiveSampling:
         )
 
         # Sample around the policy output as well
-        # TODO: make a nice policy helper function that handles reshaping
-        mu_policy = self.policy.apply(policy_params, start_state.obs)
-        mu_policy = jnp.reshape(mu_policy, (self.options.planning_horizon, -1))
+        mu_policy = self.apply_policy(policy_params, start_state.obs)
         samples_from_policy = (
             mu_policy
             + self.options.noise_std
@@ -264,16 +279,12 @@ class PredictiveSampling:
         Returns:
             Updated policy parameters and optimizer state.
         """
-        # Flatten the action sequence data
-        N = observations.shape[0]
-        action_sequences = jnp.reshape(
-            action_sequences,
-            (N, self.env.action_size * self.options.planning_horizon),
-        )
+        num_data_points = self.options.num_envs * self.options.episode_length
+        num_batches = num_data_points // self.options.batch_size
 
         def _loss(params, obs, act):
             """Compute the mean squared error loss."""
-            act_pred = self.policy.apply(params, obs)
+            act_pred = self.apply_policy(params, obs)
             return jnp.mean(jnp.square(act - act_pred))
 
         loss_and_grad = jax.value_and_grad(_loss)
@@ -304,13 +315,13 @@ class PredictiveSampling:
 
             # Shuffle the data
             rng, shuffle_rng = jax.random.split(rng)
-            permutation = jax.random.permutation(shuffle_rng, N)
+            permutation = jax.random.permutation(shuffle_rng, num_data_points)
 
             # Do a gradient descent step on each batch
             (params, opt_state, _, loss), _ = jax.lax.scan(
                 _batch_step,
                 (params, opt_state, permutation, 0.0),
-                jnp.arange(N // self.options.batch_size),
+                jnp.arange(num_batches),
             )
 
             return (params, opt_state, rng), loss
