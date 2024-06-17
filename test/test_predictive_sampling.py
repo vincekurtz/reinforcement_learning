@@ -14,9 +14,9 @@ def make_optimizer():
     env = PendulumSwingupEnv()
     options = PredictiveSamplingOptions(
         episode_length=500,
-        planning_horizon=20,
+        planning_horizon=40,
         num_envs=32,
-        num_samples=16,
+        num_samples=32,
         noise_std=0.5,
         learning_rate=1e-3,
         batch_size=100,

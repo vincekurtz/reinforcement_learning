@@ -95,10 +95,10 @@ class CartPoleSwingupEnv(PipelineEnv):
         # Compute a normalized angle error (upright is zero)
         pos = data.qpos[0]
         theta = data.qpos[1]
-        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
+        theta_err = jnp.array([jnp.sin(theta), jnp.cos(theta) - 1.0])
 
         # Compute the reward
-        upright_reward = -jnp.square(theta_err_normalized).sum()
+        upright_reward = -jnp.square(theta_err).sum()
         center_cart_reward = -jnp.square(pos).sum()
         velocity_reward = -jnp.square(data.qvel).sum()
         control_reward = -jnp.square(data.ctrl).sum()

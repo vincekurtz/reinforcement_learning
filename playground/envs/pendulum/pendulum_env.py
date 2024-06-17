@@ -117,9 +117,9 @@ class PendulumSwingupEnv(PipelineEnv):
         theta = data.qpos[0] - jnp.pi
         theta_dot = data.qvel[0]
         tau = data.ctrl[0]
-        theta_err_normalized = jnp.arctan2(jnp.sin(theta), jnp.cos(theta))
+        theta_err = jnp.array([jnp.sin(theta), jnp.cos(theta) - 1.0])
 
-        theta_cost = jnp.square(theta_err_normalized).sum()
+        theta_cost = jnp.square(theta_err).sum()
         theta_dot_cost = jnp.square(theta_dot).sum()
         control_cost = jnp.square(tau).sum()
 
