@@ -18,9 +18,28 @@ def make_optimizer():
         num_envs=4,
         num_samples=16,
         noise_std=0.5,
+        learning_rate=1e-3,
+        batch_size=100,
+        epochs_per_iteration=1,
+        iterations=10,
     )
     policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
     return PredictiveSampling(env, policy, options)
+
+
+def test_training_state():
+    """Test creating a training state."""
+    rng = jax.random.PRNGKey(0)
+    ps = make_optimizer()
+    rng, init_rng = jax.random.split(rng)
+    training_state = ps.make_training_state(init_rng)
+
+    U = ps.policy.apply(
+        training_state.params, jnp.zeros(ps.env.observation_size)
+    )
+    assert U.shape == (ps.env.action_size * ps.options.planning_horizon,)
+
+    assert training_state.opt_state is not None
 
 
 def test_rollout():
@@ -53,6 +72,10 @@ def test_choose_action_sequence():
     """Test choosing an action sequence."""
     rng = jax.random.PRNGKey(0)
     ps = make_optimizer()
+    rng, init_rng = jax.random.split(rng)
+    training_state = ps.make_training_state(init_rng)
+    policy_params = training_state.params
+
     jit_reset = jax.jit(ps.env.reset)
 
     rng, reset_rng, act_rng, sample_rng = jax.random.split(rng, 4)
@@ -61,7 +84,6 @@ def test_choose_action_sequence():
         act_rng,
         (ps.options.planning_horizon, ps.env.action_size),
     )
-    policy_params = ps.init_params
 
     best_action_sequence = ps.choose_action_sequence(
         start_state, last_action_sequence, policy_params, sample_rng
@@ -79,16 +101,23 @@ def test_episode():
     """Test running an episode from a single initial state."""
     rng = jax.random.PRNGKey(0)
     ps = make_optimizer()
-    policy_params = ps.init_params
+    training_state = ps.make_training_state(rng)
+    policy_params = training_state.params
 
     rng, episode_rng = jax.random.split(rng)
     obs, actions = ps.episode(policy_params, episode_rng)
 
+    assert obs.shape == (ps.options.episode_length, ps.env.observation_size)
+    assert actions.shape == (
+        ps.options.episode_length,
+        ps.options.planning_horizon,
+        ps.env.action_size,
+    )
     assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-1)
 
 
 if __name__ == "__main__":
-    # make_optimizer()
+    # test_training_state()
     # test_rollout()
     # test_choose_action_sequence()
     test_episode()

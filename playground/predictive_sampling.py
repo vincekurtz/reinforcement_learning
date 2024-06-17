@@ -3,9 +3,11 @@ from typing import Tuple
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+import optax
 from brax.envs.base import PipelineEnv, State
 from brax.training.types import Params
 from flax import struct
+from optax import OptState
 
 
 @struct.dataclass
@@ -17,6 +19,10 @@ class PredictiveSamplingOptions:
     num_envs: The number of parallel environments to use.
     num_samples: The number of samples to take in each environment.
     noise_std: The standard deviation of the noise added to actions.
+    learning_rate: The learning rate for policy regression
+    batch_size: The number of samples to use in each training batch.
+    epochs_per_iteration: The number of policy regression epochs per iteration.
+    iterations: The number of iterations (sampling followed by regression)
     """
 
     episode_length: int
@@ -24,6 +30,22 @@ class PredictiveSamplingOptions:
     num_envs: int
     num_samples: int
     noise_std: float
+    learning_rate: float
+    batch_size: int
+    epochs_per_iteration: int
+    iterations: int
+
+
+@struct.dataclass
+class TrainingState:
+    """Learned parameters and optimizer state for policy training.
+
+    params: The parameters of the policy network.
+    opt_state: The optimizer (e.g., Adam) state.
+    """
+
+    params: Params
+    opt_state: OptState
 
 
 class PredictiveSampling:
@@ -42,7 +64,6 @@ class PredictiveSampling:
         env: PipelineEnv,
         policy: nn.Module,
         options: PredictiveSamplingOptions,
-        seed: int = 0,
     ):
         """Initialize the predictive sampling policy search algorithm.
 
@@ -50,29 +71,48 @@ class PredictiveSampling:
             env: The environment to train on.
             policy: A network module mapping observations to an action sequence.
             options: The hyperparameters for the algorithm.
-            seed: The random seed to use for parameter initialization.
         """
+        assert (
+            options.num_envs * options.episode_length % options.batch_size == 0
+        ), (
+            f"The batch size {options.batch_size} must divide the number of "
+            f"data points, {options.num_envs * options.episode_length}."
+        )
+
         self.env = env
         self.policy = policy
         self.options = options
-        self.seed = seed
+        self.optimizer = optax.adam(self.options.learning_rate)
 
+    def make_training_state(self, rng: jax.random.PRNGKey) -> TrainingState:
+        """Initialize all learnable parameters.
+
+        Args:
+            rng: The random key to use for parameter initialization.
+
+        Returns:
+            A container with all learnable parameters.
+        """
         # Initialize the policy parameters
-        rng = jax.random.PRNGKey(seed)
         rng, init_rng = jax.random.split(rng)
-        dummy_obs = jnp.zeros((1, env.observation_size))
-        self.init_params = self.policy.init(init_rng, dummy_obs)
+        dummy_obs = jnp.zeros((1, self.env.observation_size))
+        init_params = self.policy.init(init_rng, dummy_obs)
 
         # Check the policy has the correct output size
-        dummy_output = self.policy.apply(self.init_params, dummy_obs)
+        dummy_output = self.policy.apply(init_params, dummy_obs)
         assert dummy_output.shape[-1] == (
-            env.action_size * options.planning_horizon
+            self.env.action_size * self.options.planning_horizon
         ), (
             f"Policy output size {dummy_output.shape[-1]} "
             f"does not match action sequence size "
-            f"{env.action_size}x{options.planning_horizon} "
-            f"= {env.action_size * options.planning_horizon}"
+            f"{self.env.action_size}x{self.options.planning_horizon} "
+            f"= {self.env.action_size * self.options.planning_horizon}"
         )
+
+        # Initialize the optimizer state
+        opt_state = self.optimizer.init(init_params)
+
+        return TrainingState(params=init_params, opt_state=opt_state)
 
     def rollout(
         self, start_state: State, action_sequence: jnp.ndarray
@@ -202,3 +242,26 @@ class PredictiveSampling:
         )
 
         return dataset
+
+    def regress_policy(
+        self,
+        policy_params: Params,
+        opt_state: OptState,
+        observations: jnp.ndarray,
+        action_sequences: jnp.ndarray,
+        rng: jax.random.PRNGKey,
+    ) -> Tuple[Params, OptState]:
+        """Fit the policy to the given observations and action sequences.
+
+        Args:
+            policy_params: Parameters for the policy u₀, u₁, ... = π(y₀; θ).
+            opt_state: The optimizer state.
+            observations: Initial observations y₀.
+            action_sequences: Action sequences u₀, u₁, ....
+            rng: The random key to use for shuffling the data.
+
+        Returns:
+            The updated policy parameters.
+            The updated optimizer state.
+        """
+        raise NotImplementedError
