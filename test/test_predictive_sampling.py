@@ -20,10 +20,12 @@ def make_optimizer():
         noise_std=0.5,
         learning_rate=1e-3,
         batch_size=100,
-        epochs_per_iteration=1,
+        epochs_per_iteration=100,
         iterations=10,
     )
-    policy = MLP(layer_sizes=(8, 8, options.planning_horizon * env.action_size))
+    policy = MLP(
+        layer_sizes=(16, 16, options.planning_horizon * env.action_size)
+    )
     return PredictiveSampling(env, policy, options)
 
 
@@ -116,8 +118,48 @@ def test_episode():
     assert jnp.allclose(obs[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-1)
 
 
+def test_regression():
+    """Test doing regression on recorded policy data."""
+    rng = jax.random.PRNGKey(0)
+    ps = make_optimizer()
+    training_state = ps.make_training_state(rng)
+
+    # Gather some data
+    rng, episode_rng = jax.random.split(rng)
+    obs, actions = ps.episode(training_state.params, episode_rng)
+
+    # See how well the old policy fits the data
+    act_pred = ps.policy.apply(training_state.params, obs).reshape(
+        (
+            ps.options.episode_length,
+            ps.options.planning_horizon,
+            ps.env.action_size,
+        )
+    )
+    old_error = jnp.mean(jnp.square(act_pred - actions))
+
+    # Fit the policy to the data
+    rng, regress_rng = jax.random.split(rng)
+    new_training_state = ps.regress_policy(
+        training_state, obs, actions, regress_rng
+    )
+
+    # Make sure the new policy fits the data better
+    act_pred = ps.policy.apply(new_training_state.params, obs).reshape(
+        (
+            ps.options.episode_length,
+            ps.options.planning_horizon,
+            ps.env.action_size,
+        )
+    )
+    new_error = jnp.mean(jnp.square(act_pred - actions))
+
+    assert new_error < old_error
+
+
 if __name__ == "__main__":
     # test_training_state()
     # test_rollout()
     # test_choose_action_sequence()
-    test_episode()
+    # test_episode()
+    test_regression()

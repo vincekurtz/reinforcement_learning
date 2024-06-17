@@ -241,27 +241,87 @@ class PredictiveSampling:
             jnp.arange(self.options.episode_length),
         )
 
+        # TODO: log difference between policy and optimal action sequence
+
         return dataset
 
     def regress_policy(
         self,
-        policy_params: Params,
-        opt_state: OptState,
+        training_state: TrainingState,
         observations: jnp.ndarray,
         action_sequences: jnp.ndarray,
         rng: jax.random.PRNGKey,
-    ) -> Tuple[Params, OptState]:
+    ) -> TrainingState:
         """Fit the policy to the given observations and action sequences.
 
         Args:
-            policy_params: Parameters for the policy u₀, u₁, ... = π(y₀; θ).
-            opt_state: The optimizer state.
+            training_state: Parameters for the policy u₀, u₁, ... = π(y₀; θ).
             observations: Initial observations y₀.
             action_sequences: Action sequences u₀, u₁, ....
             rng: The random key to use for shuffling the data.
 
         Returns:
-            The updated policy parameters.
-            The updated optimizer state.
+            Updated policy parameters and optimizer state.
         """
-        raise NotImplementedError
+        # Flatten the action sequence data
+        N = observations.shape[0]
+        action_sequences = jnp.reshape(
+            action_sequences,
+            (N, self.env.action_size * self.options.planning_horizon),
+        )
+
+        def _loss(params, obs, act):
+            """Compute the mean squared error loss."""
+            act_pred = self.policy.apply(params, obs)
+            return jnp.mean(jnp.square(act - act_pred))
+
+        loss_and_grad = jax.value_and_grad(_loss)
+
+        def _batch_step(carry, idx):
+            """Do a gradient descent step on a single batch."""
+            params, opt_state, permutation, _ = carry
+
+            # Select data from this batch
+            batch_idx = jax.lax.dynamic_slice_in_dim(
+                permutation,
+                idx * self.options.batch_size,
+                self.options.batch_size,
+            )
+            batch_obs = observations[batch_idx]
+            batch_act = action_sequences[batch_idx]
+
+            # Take the gradient step
+            loss, grads = loss_and_grad(params, batch_obs, batch_act)
+            updates, opt_state = self.optimizer.update(grads, opt_state)
+            params = optax.apply_updates(params, updates)
+
+            return (params, opt_state, permutation, loss), None
+
+        def _epoch(carry, i):
+            """Do an epoch of training (pass over all training data once)."""
+            params, opt_state, rng = carry
+
+            # Shuffle the data
+            rng, shuffle_rng = jax.random.split(rng)
+            permutation = jax.random.permutation(shuffle_rng, N)
+
+            # Do a gradient descent step on each batch
+            (params, opt_state, _, loss), _ = jax.lax.scan(
+                _batch_step,
+                (params, opt_state, permutation, 0.0),
+                jnp.arange(N // self.options.batch_size),
+            )
+
+            return (params, opt_state, rng), loss
+
+        params, opt_state = training_state.params, training_state.opt_state
+        rng, epoch_rng = jax.random.split(rng)
+        (params, opt_state, _), losses = jax.lax.scan(
+            _epoch,
+            (params, opt_state, epoch_rng),
+            jnp.arange(self.options.epochs_per_iteration),
+        )
+
+        # TODO: figure out a nice way to log losses
+
+        return training_state.replace(params=params, opt_state=opt_state)
