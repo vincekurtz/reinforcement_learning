@@ -128,9 +128,13 @@ def test_regression():
     print("Gathering data")
     rng, episode_rng = jax.random.split(rng)
     episode_rngs = jax.random.split(episode_rng, ps.options.num_envs)
-    obs, actions = jax.vmap(ps.episode, in_axes=(None, 0))(training_state.params, episode_rngs)
+    obs, actions = jax.vmap(ps.episode, in_axes=(None, 0))(
+        training_state.params, episode_rngs
+    )
     obs = obs.reshape((-1, ps.env.observation_size))
-    actions = actions.reshape((-1, ps.options.planning_horizon, ps.env.action_size)) 
+    actions = actions.reshape(
+        (-1, ps.options.planning_horizon, ps.env.action_size)
+    )
 
     # See how well the old policy fits the data
     act_pred = ps.policy.apply(training_state.params, obs).reshape(
@@ -164,31 +168,31 @@ def test_regression():
     print("Rolling out the fitted policy")
     jit_reset = jax.jit(ps.env.reset)
     jit_step = jax.jit(ps.env.step)
-    jit_policy = jax.jit(lambda obs: ps.policy.apply(new_training_state.params, obs).reshape(ps.options.planning_horizon, ps.env.action_size)[0])
+    jit_policy = jax.jit(
+        lambda obs: ps.policy.apply(new_training_state.params, obs).reshape(
+            ps.options.planning_horizon, ps.env.action_size
+        )[0]
+    )
 
     rng, rollout_rng = jax.random.split(rng)
     state = jit_reset(rollout_rng)
-    state = state.tree_replace({"pipeline_state.qpos": jax.numpy.array([0.0]),
-                                "pipeline_state.qvel": jax.numpy.array([0.0])})
+    state = state.tree_replace(
+        {
+            "pipeline_state.qpos": jax.numpy.array([0.0]),
+            "pipeline_state.qvel": jax.numpy.array([0.0]),
+        }
+    )
     observations = [state.obs]
-    for t in range(ps.options.episode_length):
+    for _ in range(ps.options.episode_length):
         action = jit_policy(state.obs)
         state = jit_step(state, action)
         observations.append(state.obs)
     observations = jnp.stack(observations)
-    theta = jnp.arctan2(observations[:, 1], observations[:, 0])
-    theta_dot = observations[:, 2]
 
-    print(observations[-1])
-
-    import matplotlib.pyplot as plt
-    plt.subplot(2,1,1)
-    plt.plot(theta)
-    plt.subplot(2,1,2)
-    plt.plot(theta_dot)
-    plt.show()
-
-
+    # Make sure we've reached the upright
+    assert jnp.allclose(
+        observations[-1], jnp.array([-1.0, 0.0, 0.0]), atol=1e-1
+    )
 
 
 if __name__ == "__main__":

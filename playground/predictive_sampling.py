@@ -324,6 +324,5 @@ class PredictiveSampling:
         )
 
         # TODO: figure out a nice way to log losses
-        print(losses)
 
         return training_state.replace(params=params, opt_state=opt_state)
