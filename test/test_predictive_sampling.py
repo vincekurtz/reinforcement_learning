@@ -15,7 +15,7 @@ def make_optimizer():
     options = PredictiveSamplingOptions(
         episode_length=500,
         planning_horizon=20,
-        num_envs=4,
+        num_envs=32,
         num_samples=16,
         noise_std=0.5,
         learning_rate=1e-3,
@@ -168,6 +168,8 @@ def test_regression():
 
     rng, rollout_rng = jax.random.split(rng)
     state = jit_reset(rollout_rng)
+    state = state.tree_replace({"pipeline_state.qpos": jax.numpy.array([0.0]),
+                                "pipeline_state.qvel": jax.numpy.array([0.0])})
     observations = [state.obs]
     for t in range(ps.options.episode_length):
         action = jit_policy(state.obs)
