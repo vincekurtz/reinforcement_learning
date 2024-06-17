@@ -176,6 +176,7 @@ class PredictiveSampling:
         )
 
         # Sample around the policy output as well
+        # TODO: make a nice policy helper function that handles reshaping
         mu_policy = self.policy.apply(policy_params, start_state.obs)
         mu_policy = jnp.reshape(mu_policy, (self.options.planning_horizon, -1))
         samples_from_policy = (
@@ -323,5 +324,6 @@ class PredictiveSampling:
         )
 
         # TODO: figure out a nice way to log losses
+        print(losses)
 
         return training_state.replace(params=params, opt_state=opt_state)

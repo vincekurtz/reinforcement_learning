@@ -125,13 +125,17 @@ def test_regression():
     training_state = ps.make_training_state(rng)
 
     # Gather some data
+    print("Gathering data")
     rng, episode_rng = jax.random.split(rng)
-    obs, actions = ps.episode(training_state.params, episode_rng)
+    episode_rngs = jax.random.split(episode_rng, ps.options.num_envs)
+    obs, actions = jax.vmap(ps.episode, in_axes=(None, 0))(training_state.params, episode_rngs)
+    obs = obs.reshape((-1, ps.env.observation_size))
+    actions = actions.reshape((-1, ps.options.planning_horizon, ps.env.action_size)) 
 
     # See how well the old policy fits the data
     act_pred = ps.policy.apply(training_state.params, obs).reshape(
         (
-            ps.options.episode_length,
+            ps.options.episode_length * ps.options.num_envs,
             ps.options.planning_horizon,
             ps.env.action_size,
         )
@@ -139,6 +143,7 @@ def test_regression():
     old_error = jnp.mean(jnp.square(act_pred - actions))
 
     # Fit the policy to the data
+    print("Fitting the policy to the data")
     rng, regress_rng = jax.random.split(rng)
     new_training_state = ps.regress_policy(
         training_state, obs, actions, regress_rng
@@ -147,14 +152,41 @@ def test_regression():
     # Make sure the new policy fits the data better
     act_pred = ps.policy.apply(new_training_state.params, obs).reshape(
         (
-            ps.options.episode_length,
+            ps.options.episode_length * ps.options.num_envs,
             ps.options.planning_horizon,
             ps.env.action_size,
         )
     )
     new_error = jnp.mean(jnp.square(act_pred - actions))
-
     assert new_error < old_error
+
+    # Roll out the fitted policy
+    print("Rolling out the fitted policy")
+    jit_reset = jax.jit(ps.env.reset)
+    jit_step = jax.jit(ps.env.step)
+    jit_policy = jax.jit(lambda obs: ps.policy.apply(new_training_state.params, obs).reshape(ps.options.planning_horizon, ps.env.action_size)[0])
+
+    rng, rollout_rng = jax.random.split(rng)
+    state = jit_reset(rollout_rng)
+    observations = [state.obs]
+    for t in range(ps.options.episode_length):
+        action = jit_policy(state.obs)
+        state = jit_step(state, action)
+        observations.append(state.obs)
+    observations = jnp.stack(observations)
+    theta = jnp.arctan2(observations[:, 1], observations[:, 0])
+    theta_dot = observations[:, 2]
+
+    print(observations[-1])
+
+    import matplotlib.pyplot as plt
+    plt.subplot(2,1,1)
+    plt.plot(theta)
+    plt.subplot(2,1,2)
+    plt.plot(theta_dot)
+    plt.show()
+
+
 
 
 if __name__ == "__main__":
