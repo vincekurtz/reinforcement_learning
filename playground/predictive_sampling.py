@@ -337,3 +337,42 @@ class PredictiveSampling:
         # TODO: figure out a nice way to log losses
 
         return training_state.replace(params=params, opt_state=opt_state)
+
+    def train(self, seed=0) -> Params:
+        """Main training loop for predictive sampling policy search.
+
+        Args:
+            seed: The random seed to use for training.
+
+        Returns:
+            The learned policy parameters.
+        """
+        rng = jax.random.PRNGKey(seed)
+
+        # Choose some initial parameters
+        rng, init_rng = jax.random.split(rng)
+        training_state = self.make_training_state(init_rng)
+
+        # Function to gather training data
+        jit_episode = jax.jit(jax.vmap(self.episode, in_axes=(None, 0)))
+
+        # Function to regress the policy
+        jit_regress = jax.jit(self.regress_policy)
+
+        for i in range(self.options.iterations):
+            # Collect training data
+            rng, episode_rng = jax.random.split(rng)
+            episode_rngs = jax.random.split(episode_rng, self.options.num_envs)
+            observations, action_sequences = jit_episode(
+                training_state.params, episode_rngs
+            )
+
+            # Fit the policy to the training data
+            rng, regression_rng = jax.random.split(rng)
+            training_state = jit_regress(
+                training_state, observations, action_sequences, regression_rng
+            )
+
+            print(f"Iteration {i+1} complete")
+
+        return training_state.params
