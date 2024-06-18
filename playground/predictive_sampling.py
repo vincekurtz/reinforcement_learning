@@ -163,7 +163,7 @@ class PredictiveSampling:
         last_action_sequence: jnp.ndarray,
         policy_params: Params,
         rng: jax.random.PRNGKey,
-    ) -> jnp.ndarray:
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """Use predictive sampling to get a reasonable action sequence.
 
         Half of the samples are from a normal distribution around the last
@@ -178,6 +178,7 @@ class PredictiveSampling:
 
         Returns:
             The sampled action sequence with the highest reward.
+            The reward associated with the best action sequence.
         """
         rng, last_rng, policy_rng = jax.random.split(rng, 3)
 
@@ -210,13 +211,13 @@ class PredictiveSampling:
         )
         best_index = jnp.argmax(rewards)
         best_action_sequence = all_samples[best_index]
-        return best_action_sequence
+        return best_action_sequence, rewards[best_index]
 
     def episode(
         self,
         policy_params: Params,
         rng: jax.random.PRNGKey,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         """Collect an episode of training data from a random initial state.
 
         Args:
@@ -224,7 +225,7 @@ class PredictiveSampling:
             rng: The random key to use.
 
         Returns:
-            A dataset of (start_state, action_sequence) pairs.
+            A dataset of (start_state, action_sequence, reward).
         """
         # Set a random initial state
         rng, reset_rng = jax.random.split(rng)
@@ -242,13 +243,14 @@ class PredictiveSampling:
             start_state, last_action_sequence, rng = carry
             rng, sample_rng = jax.random.split(rng)
 
-            action_sequence = self.choose_action_sequence(
+            action_sequence, reward = self.choose_action_sequence(
                 start_state, last_action_sequence, policy_params, sample_rng
             )
             state = self.env.step(start_state, action_sequence[0])
             return (state, action_sequence, rng), (
                 start_state.obs,
                 action_sequence,
+                reward,
             )
 
         (state, _, _), dataset = jax.lax.scan(
@@ -267,7 +269,7 @@ class PredictiveSampling:
         observations: jnp.ndarray,
         action_sequences: jnp.ndarray,
         rng: jax.random.PRNGKey,
-    ) -> TrainingState:
+    ) -> Tuple[TrainingState, jnp.ndarray]:
         """Fit the policy to the given observations and action sequences.
 
         Args:
@@ -278,6 +280,7 @@ class PredictiveSampling:
 
         Returns:
             Updated policy parameters and optimizer state.
+            Training loss from the last epoch.
         """
         num_data_points = self.options.num_envs * self.options.episode_length
         num_batches = num_data_points // self.options.batch_size
@@ -334,9 +337,8 @@ class PredictiveSampling:
             jnp.arange(self.options.epochs_per_iteration),
         )
 
-        # TODO: figure out a nice way to log losses
-
-        return training_state.replace(params=params, opt_state=opt_state)
+        loss = losses[-1]
+        return training_state.replace(params=params, opt_state=opt_state), loss
 
     def train(self, seed=0) -> Params:
         """Main training loop for predictive sampling policy search.
@@ -363,16 +365,18 @@ class PredictiveSampling:
             # Collect training data
             rng, episode_rng = jax.random.split(rng)
             episode_rngs = jax.random.split(episode_rng, self.options.num_envs)
-            observations, action_sequences = jit_episode(
+            observations, action_sequences, rewards = jit_episode(
                 training_state.params, episode_rngs
             )
 
             # Fit the policy to the training data
             rng, regression_rng = jax.random.split(rng)
-            training_state = jit_regress(
+            training_state, loss = jit_regress(
                 training_state, observations, action_sequences, regression_rng
             )
 
-            print(f"Iteration {i+1} complete")
+            print(
+                f"Iteration {i+1} complete, loss = {loss}, reward = {jnp.mean(rewards)}"
+            )
 
         return training_state.params

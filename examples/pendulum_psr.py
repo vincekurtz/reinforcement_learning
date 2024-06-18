@@ -20,18 +20,18 @@ def train():
     """Train the policy and save it to a file."""
     env = PendulumSwingupEnv()
     options = PredictiveSamplingOptions(
-        episode_length=500,
-        planning_horizon=40,
-        num_envs=32,
+        episode_length=512,
+        planning_horizon=50,
+        num_envs=128,
         num_samples=32,
         noise_std=0.5,
         learning_rate=1e-3,
-        batch_size=100,
+        batch_size=512,
         epochs_per_iteration=100,
-        iterations=1,
+        iterations=5,
     )
     policy = MLP(
-        layer_sizes=(16, 16, options.planning_horizon * env.action_size)
+        layer_sizes=(16, 16, options.planning_horizon * env.action_size),
     )
 
     ps = PredictiveSampling(env, policy, options)
