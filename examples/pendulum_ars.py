@@ -2,7 +2,6 @@ import pickle
 import sys
 
 import jax
-from brax.training.distribution import NormalTanhDistribution
 
 from playground.architectures import MLP
 from playground.ars import (
