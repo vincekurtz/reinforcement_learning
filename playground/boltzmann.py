@@ -141,17 +141,19 @@ class BoltzmannPolicySearch:
             info: A dictionary of evaluation info.
             iteration: The current training iteration.
         """
+        steps = iteration * self.options.num_envs * self.options.episode_length
+
         # Write stuff to tensorboard
         for key, value in info.items():
             if isinstance(value, jax.Array):
                 value = float(value)
-            self.tb_writer.add_scalar(key, value, iteration)
+            self.tb_writer.add_scalar(key, value, steps)
         self.tb_writer.flush()
 
         # Print a summary
         elapsed = datetime.now() - self.start_time
         reward = info["eval/episode_reward"]
-        print(f"  Iter: {iteration}, Reward: {reward:.2f}, Time: {elapsed}")
+        print(f"  Steps: {steps}, Reward: {reward:.2f}, Time: {elapsed}")
 
     def rollout(
         self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey
