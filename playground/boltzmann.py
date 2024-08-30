@@ -29,6 +29,18 @@ class BoltzmannPolicySearchOptions:
     num_eval_envs: int = 128
 
 
+@struct.dataclass
+class TrainingState:
+    """Learned parameters and other training state data.
+
+    param_vector: The current parameters of the policy.
+    covariance_matrix: The covariance of the parameter sampling distribution.
+    """
+
+    param_vector: jnp.ndarray
+    covariance_matrix: jnp.ndarray
+
+
 class BoltzmannPolicySearch:
     """A simple RL algorithm inspired by the MPPI update rule.
 
@@ -51,7 +63,6 @@ class BoltzmannPolicySearch:
         policy: nn.Module,
         options: BoltzmannPolicySearchOptions,
         tensorboard_logdir: str = None,
-        seed: int = 0,
     ):
         """Initialize the Boltzmann policy search algorithm.
 
@@ -60,14 +71,13 @@ class BoltzmannPolicySearch:
             policy: The policy module to train, maps observations to actions.
             options: The hyperparameters for the algorithm.
             tensorboard_logdir: The directory to save tensorboard logs to.
-            seed: The random seed to use for parameter initialization.
         """
         self.env = env
         self.policy = policy
         self.options = options
 
         # Initialize the policy parameters
-        rng = jax.random.PRNGKey(seed)
+        rng = jax.random.PRNGKey(0)
         rng, init_rng = jax.random.split(rng)
         dummy_obs = jnp.zeros((1, env.observation_size))
         init_params = self.policy.init(init_rng, dummy_obs)
@@ -82,7 +92,6 @@ class BoltzmannPolicySearch:
         # Make an unravelling function so we can treat params as a vector
         flat_params, self.unravel = jax.flatten_util.ravel_pytree(init_params)
         self.num_params = len(flat_params)
-        self.initial_parameter_vector = flat_params
 
         # Set up tensorboard logging
         if tensorboard_logdir is not None:
@@ -91,6 +100,22 @@ class BoltzmannPolicySearch:
             logdir = f"/tmp/rl_playground/bps_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         print("Setting up tensorboard logging at", logdir)
         self.tb_writer = SummaryWriter(logdir)
+
+    def make_training_state(self, rng: jax.random.PRNGKey) -> TrainingState:
+        """Create a new set of initial training parameters.
+
+        Args:
+            rng: The random key to use for initialization.
+
+        Returns:
+            The initial training state.
+        """
+        dummy_obs = jnp.zeros((1, self.env.observation_size))
+        params = self.policy.init(rng, dummy_obs)
+        param_vector, _ = jax.flatten_util.ravel_pytree(params)
+        covariance_matrix = jnp.eye(self.num_params) * self.options.sigma**2
+
+        return TrainingState(param_vector, covariance_matrix)
 
     def evaluate(
         self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey
@@ -156,12 +181,12 @@ class BoltzmannPolicySearch:
         print(f"  Steps: {steps}, Reward: {reward:.2f}, Time: {elapsed}")
 
     def rollout(
-        self, parameter_vector: jnp.ndarray, rng: jax.random.PRNGKey
+        self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey
     ) -> Tuple[jnp.ndarray, Metrics]:
         """Roll out the policy with a given set of parameters.
 
         Args:
-            parameter_vector: The parameters to use for the policy.
+            param_vector: The parameters to use for the policy.
             rng: The random key to use for the rollout.
 
         Returns:
@@ -169,7 +194,7 @@ class BoltzmannPolicySearch:
         """
         # Reset the environment
         start_state = self.env.reset(rng)
-        params = self.unravel(parameter_vector)
+        params = self.unravel(param_vector)
 
         # Roll out the policy
         def f(carry, t):
@@ -187,27 +212,33 @@ class BoltzmannPolicySearch:
         return total_reward, metrics
 
     def train_step(
-        self, param_vector: jnp.ndarray, rng: jax.random.PRNGKey
+        self, training_state: TrainingState, rng: jax.random.PRNGKey
     ) -> Tuple[jnp.ndarray, Metrics]:
         """Perform a single step of training.
 
         Args:
-            param_vector: The parameters to use for the policy.
+            training_state: Container for the policy parameters.
             rng: The random key to use for the rollouts and sampling.
 
         Returns:
             The updated parameter vector, and a dictionary of training info.
         """
+        param_vector = training_state.param_vector
+        Sigma = training_state.covariance_matrix
+
         # Set random seeds for each rollout
         rng, rollout_rng = jax.random.split(rng)
         rollout_rng = jax.random.split(rollout_rng, self.options.num_envs)
 
         # Sample random normal perturbations to the parameters
         rng, param_rng = jax.random.split(rng)
-        deltas = jax.random.normal(
-            param_rng, (self.options.num_envs, self.num_params)
+        deltas = jax.random.multivariate_normal(
+            param_rng,
+            jnp.zeros(self.num_params),
+            Sigma,
+            shape=(self.options.num_envs,),
         )
-        perturbed_params = param_vector + self.options.sigma * deltas
+        perturbed_params = param_vector + deltas
 
         # Roll out the perturbed policies
         rewards, _ = jax.vmap(self.rollout)(perturbed_params, rollout_rng)
@@ -215,18 +246,30 @@ class BoltzmannPolicySearch:
         # Normalize the rewards
         mean_reward = jnp.mean(rewards)
         std_reward = jnp.std(rewards)
-        rewards = (rewards - mean_reward) / std_reward
+        rewards = (rewards - mean_reward) / (std_reward + 1e-6)
 
         # Compute the parameter update
         weights = jnp.exp(rewards / self.options.temperature)
         weights /= jnp.sum(weights)
         param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
 
+        # Compute the covariance update
+        sample_covariance = (
+            jnp.einsum("ij,ik->jk", deltas, deltas) / self.options.sigma**2
+        )
+
+        training_state = training_state.replace(
+            param_vector=param_vector,
+            covariance_matrix=0.9 * Sigma + 0.1 * sample_covariance,
+        )
         info = {
             "training/mean_reward": mean_reward,
             "training/std_reward": std_reward,
+            "training/covariance_trace": jnp.trace(
+                training_state.covariance_matrix
+            ),
         }
-        return param_vector, info
+        return training_state, info
 
     def train(self, iterations: int, num_evals: int, seed: int = 0) -> Params:
         """Run the main training loop.
@@ -240,23 +283,25 @@ class BoltzmannPolicySearch:
             The final parameters of the policy, in pytree format.
         """
         rng = jax.random.PRNGKey(seed)
-        param_vector = self.initial_parameter_vector
-        self.start_time = datetime.now()
+
+        rng, init_rng = jax.random.split(rng)
+        training_state = self.make_training_state(init_rng)
 
         jit_train_step = jax.jit(self.train_step)
         jit_evaluate = jax.jit(self.evaluate)
 
+        self.start_time = datetime.now()
         eval_every = iterations // num_evals
         for i in range(iterations):
             rng, train_rng = jax.random.split(rng)
-            param_vector, train_metrics = jit_train_step(
-                param_vector, train_rng
+            training_state, train_metrics = jit_train_step(
+                training_state, train_rng
             )
 
             if i % eval_every == 0:
                 rng, eval_rng = jax.random.split(rng)
-                metrics = jit_evaluate(param_vector, eval_rng)
+                metrics = jit_evaluate(training_state.param_vector, eval_rng)
                 metrics.update(train_metrics)
                 self.log_eval_data(metrics, i)
 
-        return self.unravel(param_vector)
+        return self.unravel(training_state.param_vector)

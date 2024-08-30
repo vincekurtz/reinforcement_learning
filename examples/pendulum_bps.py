@@ -1,5 +1,6 @@
 import pickle
 import sys
+from datetime import datetime
 
 import jax
 
@@ -23,7 +24,7 @@ def train():
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
         num_envs=512,
-        temperature=1.0,
+        temperature=100.0,
         sigma=0.1,
     )
 
@@ -31,7 +32,8 @@ def train():
         env=env,
         policy=policy_net,
         options=options,
-        tensorboard_logdir="/tmp/rl_playground/pendulum_bps",
+        tensorboard_logdir="/tmp/rl_playground/pendulum_bps_"
+        + datetime.now().strftime("%Y%m%d-%H%M%S"),
     )
     params = bps.train(iterations=5000, num_evals=10)
 
