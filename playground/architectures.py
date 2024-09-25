@@ -49,6 +49,24 @@ class MLP(nn.Module):
         return x
 
 
+class TwoInputMLP(nn.Module):
+    """A simple multi-layer perceptron with two inputs."""
+
+    layer_sizes: Sequence[int]
+    activate_final: bool = False
+    bias: bool = True
+
+    @nn.compact
+    def __call__(self, x1: jnp.ndarray, x2: jnp.ndarray) -> jnp.ndarray:
+        """Forward pass through the network."""
+        x = jnp.concatenate([x1, x2], axis=-1)
+        return MLP(
+            layer_sizes=self.layer_sizes,
+            activate_final=self.activate_final,
+            bias=self.bias,
+        )(x)
+
+
 class MLPWithPassthrough(nn.Module):
     """A simple multi-layer perceptron where the input is passed through.
 

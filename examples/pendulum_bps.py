@@ -20,11 +20,11 @@ Use Boltzmann Policy Search to train a pendulum swingup task.
 def train():
     """Train the policy and save it to a file."""
     env = PendulumSwingupEnv()
-    policy_net = MLP(layer_sizes=(8, 8, 1), activate_final=True)
+    policy_net = MLP(layer_sizes=(32, 32, 1), activate_final=True)
     options = BoltzmannPolicySearchOptions(
         episode_length=100,
-        num_envs=512,
-        temperature=100.0,
+        num_envs=1024,
+        temperature=1.0,
         sigma=0.1,
     )
 

@@ -249,18 +249,12 @@ class BoltzmannPolicySearch:
         rewards = (rewards - mean_reward) / (std_reward + 1e-6)
 
         # Compute the parameter update
-        weights = jnp.exp(rewards / self.options.temperature)
-        weights /= jnp.sum(weights)
+        weights = jax.nn.softmax(rewards / self.options.temperature)
         param_vector = jnp.sum(perturbed_params.T * weights, axis=1)
-
-        # Compute the covariance update
-        sample_covariance = (
-            jnp.einsum("ij,ik->jk", deltas, deltas) / self.options.sigma**2
-        )
 
         training_state = training_state.replace(
             param_vector=param_vector,
-            covariance_matrix=0.9 * Sigma + 0.1 * sample_covariance,
+            # covariance_matrix=0.9 * Sigma + 0.1 * sample_covariance,
         )
         info = {
             "training/mean_reward": mean_reward,
