@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="3D_SLIP">
+
+    <!-- Specify the light settings -->
+    <visual>
+        <headlight ambient="0.5 0.5 0.5"/>
+    </visual>
+
+    <!-- List the location of all meshes -->
+    <asset>
+        <texture type='skybox' builtin='gradient' width='128' height='128' rgb1='0.4 0.6 0.8' rgb2='0 0 0'/>
+        <mesh file="./meshes/Body.STL" name="com"/>
+        <texture builtin="checker" height="512" name="plane" rgb1="0.9 0.9 0.99"
+                 rgb2="0.7 0.7 0.7"
+                 type="2d"
+                 width="512"/>
+        <material name="plane" reflectance="0.5" texrepeat="1 1" texture="plane"
+                  texuniform="true"/>
+    </asset>  
+
+    <!-- Set the angles to be in radians -->
+    <compiler angle="radian" autolimits="true" eulerseq="zyx"/>
+
+    <!-- Bodies -->
+    <worldbody>
+        <!-- Ground -->
+        <geom material="plane" name="plane" rgba="0.9 0.9 0.9 1" size="100 100 0.1" type="plane" euler="0 0 0"/>
+
+        <!-- COM Body -->
+        <body name="com" pos="0 0 1.5">
+            <!-- ixx iyy izz ixy ixz iyz-->
+            <inertial mass="20.0" fullinertia=" 0.045 0.045 0.045 0.0 0.0 0.0" pos="0 0 0.0" />
+            <geom name="com_mesh" conaffinity="0" contype="0" density="0" group="1" mesh="com" type="mesh" rgba="1.0 0.424 0.047 1.0"/>
+            <freejoint name="root"/>
+
+            <!-- Intermediate Servo Frames -->
+            <body name="x_axis_leg" pos="0 0 0">
+                <inertial mass="0.001" fullinertia="0.00001 0.00001 0.00001 0.0 0.0 0.0" pos="0 0 0.0"/>
+                <joint name="leg_roll" axis="1 0 0" limited="true" range="-1.5708 1.5708"/>
+                
+                <body name="y_axis_leg" pos="0 0 0">
+                    <inertial mass="0.001" fullinertia="0.00001 0.00001 0.00001 0.0 0.0 0.0" pos="0 0 0.0"/>
+                    <joint name="leg_pitch" axis="0 1 0" limited="true" range="-1.5708 1.5708"/>
+
+                    <!-- Upper Leg -->
+                    <body name="leg_upper" pos="0 0 -0.15">
+                        <inertial mass="0.1" fullinertia="0.0001 0.0001 0.0001 0.0 0.0 0.0" pos="0 0 0.0"/>
+                        <geom name="leg_upper_cylinder" conaffinity="0" contype="0" density="0" group="1" type="cylinder" size="0.025 0.15" rgba="0.2 0.2 0.2 0.5"/>
+                    
+                        <!-- Lower Leg -->
+                        <body name="leg_lower" pos="0 0 -0.15">
+                            <inertial mass="0.1" fullinertia="0.0001 0.0001 0.0001 0.0 0.0 0.0" pos="0 0 0.0"/>
+                            <geom name="leg_lower_cylinder" conaffinity="0" contype="0" density="0" group="1" type="cylinder" size="0.015 0.15" rgba="1 1 1 0.5"/>
+                            <joint name="leg_prismatic" type="slide" axis="0 0 1" limited="true" range="-0.15 0.15" stiffness="10000" damping="1.0"/>
+
+                            <!--Foot -->
+                            <body name="foot" pos="0 0 -0.15">
+                                <inertial mass="0.1" fullinertia="0.0001 0.0001 0.0001 0.0 0.0 0.0" pos="0 0 0.0"/>
+                                <geom name="foot_sphere" conaffinity="0" contype="0" density="0" group="1" type="sphere" size="0.025" rgba="0 0 0 1.0"/>
+                            </body>
+                        </body>
+                    </body> 
+                </body> 
+            </body>
+        </body> 
+    </worldbody>
+
+    <!-- Collisions -->
+    <contact>
+        <pair name="com_to_ground" geom1="com_mesh" geom2="plane"/> 
+        <pair name="foot_to_ground" geom1="foot_sphere" geom2="plane"/>
+    </contact>
+
+    <!-- Actuators -->
+    <actuator>
+        <motor name="leg_roll_effort" joint="leg_roll" ctrllimited="true" ctrlrange="-100 100"/>
+        <motor name="leg_pitch_effort" joint="leg_pitch" ctrllimited="true" ctrlrange="-100 100"/>
+        <motor name="leg_prismatic_effort" joint="leg_prismatic" ctrllimited="true" ctrlrange="-300 300"/>
+    </actuator>
+
+</mujoco>
