@@ -18,6 +18,7 @@ dependencies = [
     "flax>=0.8.1",
     "jax[cuda12_local]==0.4.28",
     "jaxlib==0.4.28",
+    "nvidia-cudnn-cu12==8.9.2.26",
     "matplotlib>=3.8.3",
     "mujoco>=3.1.2",
     "mujoco-mjx>=3.1.2",
