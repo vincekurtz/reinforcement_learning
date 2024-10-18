@@ -32,8 +32,9 @@ def test_bps():
     assert bps.num_params > 0
 
     # Check that a single rollout works
-    rng, rollout_rng = jax.random.split(rng)
-    param_vec = bps.initial_parameter_vector
+    rng, rollout_rng, init_rng = jax.random.split(rng, 3)
+    train_state = bps.make_training_state(init_rng)
+    param_vec = train_state.param_vector
     reward, _ = bps.rollout(param_vec, rollout_rng)
     assert reward.shape == ()
 
