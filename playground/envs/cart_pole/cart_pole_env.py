@@ -24,7 +24,7 @@ class CartPoleSwingupConfig:
 
     # Reward function coefficients
     upright_angle_cost: float = 1.0
-    center_cart_cost: float = 0.1
+    center_cart_cost: float = 1.0
     velocity_cost: float = 0.01
     control_cost: float = 0.001
 
@@ -99,7 +99,7 @@ class CartPoleSwingupEnv(PipelineEnv):
 
         # Compute the reward
         upright_reward = -jnp.square(theta_err).sum()
-        center_cart_reward = -jnp.square(jnp.square(pos)).sum()
+        center_cart_reward = -jnp.square(pos).sum()
         velocity_reward = -jnp.square(data.qvel).sum()
         control_reward = -jnp.square(data.ctrl).sum()
 
