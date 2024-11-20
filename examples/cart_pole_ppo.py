@@ -22,7 +22,7 @@ def train():
     """Train the swingup policy and save it to a file."""
     # Create policy and value functions
     network_wrapper = BraxPPONetworksWrapper(
-        policy_network=MLP(layer_sizes=(8, 8, 2)),
+        policy_network=MLP(layer_sizes=(32, 32, 2)),
         value_network=MLP(layer_sizes=(64, 64, 1)),
         action_distribution=NormalTanhDistribution,
     )
@@ -35,7 +35,7 @@ def train():
         tensorboard_logdir="/tmp/rl_playground/cart_pole_ppo",
         num_timesteps=60_000_000,
         num_evals=10,
-        reward_scaling=0.1,
+        reward_scaling=0.01,
         episode_length=100,
         normalize_observations=True,
         unroll_length=10,
@@ -44,7 +44,7 @@ def train():
         discounting=0.97,
         learning_rate=1e-3,
         clipping_epsilon=0.2,
-        entropy_cost=1e-3,
+        entropy_cost=1e-2,
         num_envs=2048,
         batch_size=1024,
         seed=0,

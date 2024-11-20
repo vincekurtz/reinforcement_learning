@@ -99,7 +99,7 @@ class CartPoleSwingupEnv(PipelineEnv):
 
         # Compute the reward
         upright_reward = -jnp.square(theta_err).sum()
-        center_cart_reward = -jnp.square(pos).sum()
+        center_cart_reward = -jnp.square(jnp.square(pos)).sum()
         velocity_reward = -jnp.square(data.qvel).sum()
         control_reward = -jnp.square(data.ctrl).sum()
 
