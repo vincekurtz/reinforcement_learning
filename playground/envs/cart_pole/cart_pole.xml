@@ -2,7 +2,7 @@
     <option solver="Newton" timestep="0.02" iterations="1" ls_iterations="4" />
     <compiler inertiafromgeom="true" />
     <default>
-        <joint armature="0" damping="1e-5" limited="true" />
+        <joint armature="0" damping="1e-2" limited="true" />
         <geom contype="0" />
     </default>
     <size nstack="3000" />
